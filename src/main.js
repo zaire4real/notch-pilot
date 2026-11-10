@@ -63,6 +63,14 @@ const peekArtEl = $("peek-art");
 const peekTextEl = $("peek-text");
 const peekBarEl = $("peek-bar");
 const peekFillEl = $("peek-fill");
+const weatherLineEl = $("weather-line");
+const btRowEl = $("bt-row");
+const btTextEl = $("bt-text");
+const pomoTimeEl = $("pomo-time");
+const pomoModeEl = $("pomo-mode");
+const pomoToggleBtn = $("btn-pomo-toggle");
+const pomoResetBtn = $("btn-pomo-reset");
+const pomoModeBtn = $("btn-pomo-mode");
 
 let expanded = false;
 let expandTimer = null;
@@ -649,11 +657,13 @@ function parseLrc(lrc) {
 }
 
 // 1 s tick: keeps the progress bar and lyric line moving between
-// the 5 s Rust polls.
+// the 5 s Rust polls, and drives the Pomodoro countdown.
 function tickPosition() {
-  if (!lastNowPlaying || !lastNowPlaying.title) return;
-  renderProgress();
-  renderLyric();
+  if (lastNowPlaying && lastNowPlaying.title) {
+    renderProgress();
+    renderLyric();
+  }
+  tickPomodoro();
 }
 
 // --- File shelf (v0.2 Phase 4a, F7 — shelf half) -----------------
@@ -1038,6 +1048,9 @@ function applyLanguage(lang) {
   renderShelf();
   renderCalendar();
   renderReminders();
+  renderWeather();
+  renderBluetooth();
+  renderPomodoro();
   refreshTime();
   // Re-render the mirror status line (dynamic text, not data-i18n).
   renderMirrorState(mirrorLast.status, mirrorLast.message, mirrorLast.frame);
@@ -1117,6 +1130,12 @@ function applySettings(settings) {
   // the Settings window): restart or stop the session to match.
   applyMirrorShape();
   syncMirror();
+  // Weather settings may have changed (enabled / city): re-fetch
+  // so the line follows immediately (a disabled/empty city hides
+  // it). Pomodoro is deliberately NOT re-applied here: the panel
+  // owns the live countdown and the saved snapshot is stale
+  // between ticks — re-applying it would jump the timer backwards.
+  refreshWeather();
 }
 
 // Switch the system default output to the device with this UID.
@@ -1195,6 +1214,8 @@ async function setExpanded(next) {
     refreshAudioOutputs();
     // Calendar/reminders can change while the panel is closed too.
     refreshCalendar();
+    // Bluetooth is polled on expand only (system_profiler ~1 s).
+    refreshBluetooth();
   }
   // Camera mirror (Phase 5): start on expand, stop on collapse.
   syncMirror();
@@ -1471,6 +1492,290 @@ async function refreshHud() {
     }
   }
   lastHud = hud;
+}
+
+// --- Weather (v0.2 Phase 7, F11 — NotchPilot EXTRA, not original
+// parity) --------------------------------------------------------
+// Open-Meteo, free, no key. City → coords via the Open-Meteo
+// geocoding API (cached per city string, in memory only), then the
+// forecast API for the current temperature + WMO weather code.
+// Shown as one line under the calendar header. Disabled, empty
+// city, or any fetch failure hides the line silently: weather is
+// an extra and must never break the panel or show an error.
+// Default city is Taipei (settings.weather.city, Phase 0).
+let weatherState = null; // { temp, code, city } or null = hidden
+let weatherGeoCache = { city: "", lat: null, lon: null };
+let weatherBusy = false;
+
+function weatherCodeInfo(code) {
+  // WMO weather codes → [emoji, i18n key].
+  if (code === 0) return ["☀️", "weatherClear"];
+  if (code === 1 || code === 2) return ["⛅", "weatherPartlyCloudy"];
+  if (code === 3) return ["☁️", "weatherCloudy"];
+  if (code === 45 || code === 48) return ["🌫️", "weatherFog"];
+  if (code >= 51 && code <= 57) return ["🌦️", "weatherDrizzle"];
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82))
+    return ["🌧️", code >= 80 ? "weatherShowers" : "weatherRain"];
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86)
+    return ["🌨️", "weatherSnow"];
+  if (code >= 95) return ["⛈️", "weatherThunderstorm"];
+  return ["🌡️", "weatherUnknown"];
+}
+
+function renderWeather() {
+  if (!weatherLineEl) return;
+  if (!weatherState || weatherState.temp == null) {
+    weatherLineEl.hidden = true;
+    weatherLineEl.textContent = "";
+    return;
+  }
+  const [emoji, key] = weatherCodeInfo(weatherState.code);
+  weatherLineEl.textContent =
+    `${emoji} ${weatherState.temp}°C · ${weatherState.city} — ${t(key)}`;
+  weatherLineEl.hidden = false;
+}
+
+async function refreshWeather() {
+  if (weatherBusy) return;
+  const w = lastSettings && lastSettings.weather;
+  const city = w && typeof w.city === "string" ? w.city.trim() : "";
+  if (!w || w.enabled !== true || !city) {
+    weatherState = null;
+    renderWeather();
+    return;
+  }
+  weatherBusy = true;
+  try {
+    // Resolve the city once per city string; a failed geocode
+    // hides the line (no error) and is retried on the next poll.
+    if (weatherGeoCache.city !== city) {
+      const geoRes = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`,
+      );
+      if (!geoRes.ok) return;
+      const geo = await geoRes.json();
+      const hit = geo && Array.isArray(geo.results) && geo.results[0];
+      if (!hit || hit.latitude == null || hit.longitude == null) return;
+      weatherGeoCache = { city, lat: hit.latitude, lon: hit.longitude };
+    }
+    const { lat, lon } = weatherGeoCache;
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`,
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+    const current = data && data.current;
+    if (!current || current.temperature_2m == null) return;
+    weatherState = {
+      temp: Math.round(current.temperature_2m),
+      code: current.weather_code,
+      city,
+    };
+    renderWeather();
+  } catch (e) {
+    console.warn("weather fetch failed:", e);
+  } finally {
+    weatherBusy = false;
+  }
+}
+
+// --- Bluetooth live activity (v0.2 Phase 7, F10) -----------------
+// system_profiler takes ~1 s, so this is NOT polled hot: on expand,
+// every 60 s while expanded, and at most every 5 min while
+// collapsed (that slow tick is what lets a connect/disconnect
+// sneak-peek fire while the panel is closed). A change between
+// polls fires a peek; the row always shows the latest list.
+// `lastBtDevices` is null until the first successful poll, so
+// startup never flashes a connect peek.
+let lastBtDevices = null;
+let lastBtState = null;
+let lastBtPollAt = 0;
+let btBusy = false;
+
+function renderBluetooth() {
+  if (!btRowEl || !btTextEl) return;
+  const available = lastBtState ? lastBtState.available !== false : false;
+  btRowEl.hidden = !available;
+  if (!available) {
+    btTextEl.textContent = "";
+    return;
+  }
+  const devices = (lastBtState && lastBtState.devices) || [];
+  btTextEl.textContent =
+    devices.length > 0 ? devices.join(" · ") : t("btNone");
+}
+
+async function refreshBluetooth() {
+  if (btBusy) return;
+  btBusy = true;
+  let state = null;
+  try {
+    state = await invoke("get_bluetooth_devices");
+  } catch (e) {
+    console.warn("get_bluetooth_devices failed:", e);
+  } finally {
+    btBusy = false;
+  }
+  if (!state) return;
+  lastBtPollAt = Date.now();
+  const devices = Array.isArray(state.devices) ? state.devices : [];
+  if (lastBtDevices !== null) {
+    for (const name of devices) {
+      if (!lastBtDevices.includes(name)) {
+        showSneakPeek({ kind: "bluetooth", text: `${t("btConnected")}: ${name}` });
+      }
+    }
+    for (const name of lastBtDevices) {
+      if (!devices.includes(name)) {
+        showSneakPeek({ kind: "bluetooth", text: `${t("btDisconnected")}: ${name}` });
+      }
+    }
+  }
+  lastBtDevices = devices;
+  lastBtState = state;
+  renderBluetooth();
+}
+
+// One Bluetooth tick: poll when expanded, or when collapsed and
+// the last poll was over 5 minutes ago.
+function bluetoothTick() {
+  if (expanded || Date.now() - lastBtPollAt > 5 * 60 * 1000) {
+    refreshBluetooth();
+  }
+}
+
+// --- Pomodoro timer (v0.2 Phase 7, F20) --------------------------
+// Pure frontend: 25 min focus / 5 min break, start/pause/reset,
+// switch mode. The countdown ticks once a second (driven by the
+// 1 s tickPosition interval); state is persisted to settings.json
+// ONLY on transitions (start/pause/reset/mode switch/period end),
+// never every tick, so a settings save does not happen per second.
+// On period end the mode flips, the new period starts running, and
+// a sneak-peek announces it. Restored from settings on start — if
+// it was running when the app closed, it resumes from the saved
+// remaining time (see settings.rs).
+const POMO_FOCUS_SECS = 25 * 60;
+const POMO_BREAK_SECS = 5 * 60;
+let pomo = { mode: "focus", remaining: POMO_FOCUS_SECS, running: false };
+
+function pomoDuration(mode) {
+  return mode === "break" ? POMO_BREAK_SECS : POMO_FOCUS_SECS;
+}
+
+function pomoFromSettings() {
+  const saved =
+    lastSettings && lastSettings.pomodoro ? lastSettings.pomodoro : null;
+  if (!saved) return;
+  pomo.mode = saved.mode === "break" ? "break" : "focus";
+  pomo.remaining =
+    typeof saved.remaining_secs === "number" && saved.remaining_secs > 0
+      ? Math.min(saved.remaining_secs, pomoDuration(pomo.mode))
+      : pomoDuration(pomo.mode);
+  pomo.running = saved.running === true;
+}
+
+async function persistPomodoro() {
+  try {
+    const settings = await invoke("get_settings");
+    if (!settings) return;
+    settings.pomodoro = {
+      mode: pomo.mode,
+      remaining_secs: pomo.remaining,
+      running: pomo.running,
+    };
+    lastSettings = await invoke("set_settings", { settings });
+  } catch (e) {
+    console.warn("persisting pomodoro failed:", e);
+  }
+}
+
+function renderPomodoro() {
+  if (pomoTimeEl) {
+    pomoTimeEl.textContent = formatTime(pomo.remaining);
+  }
+  if (pomoModeEl) {
+    pomoModeEl.textContent = t(
+      pomo.mode === "break" ? "pomodoroBreak" : "pomodoroFocus",
+    );
+  }
+  if (pomoToggleBtn) {
+    pomoToggleBtn.textContent = pomo.running ? "⏸" : "▶";
+    pomoToggleBtn.setAttribute(
+      "title",
+      t(pomo.running ? "pomodoroPause" : "pomodoroStart"),
+    );
+  }
+  if (pomoModeBtn) {
+    pomoModeBtn.setAttribute(
+      "title",
+      t(pomo.mode === "break" ? "pomodoroFocus" : "pomodoroBreak"),
+    );
+  }
+}
+
+function tickPomodoro() {
+  if (!pomo.running) return;
+  pomo.remaining -= 1;
+  if (pomo.remaining <= 0) {
+    // Period done: flip mode, start the new period running, peek.
+    pomo.mode = pomo.mode === "break" ? "focus" : "break";
+    pomo.remaining = pomoDuration(pomo.mode);
+    showSneakPeek({
+      kind: "pomodoro",
+      text: t(
+        pomo.mode === "break" ? "pomodoroFocusDone" : "pomodoroBreakDone",
+      ),
+    });
+    persistPomodoro();
+  }
+  renderPomodoro();
+}
+
+function setPomoRunning(next) {
+  if (pomo.running === next) return;
+  pomo.running = next;
+  renderPomodoro();
+  persistPomodoro();
+}
+
+function resetPomodoro() {
+  pomo.remaining = pomoDuration(pomo.mode);
+  pomo.running = false;
+  renderPomodoro();
+  persistPomodoro();
+}
+
+function switchPomoMode() {
+  pomo.mode = pomo.mode === "break" ? "focus" : "break";
+  pomo.remaining = pomoDuration(pomo.mode);
+  pomo.running = false;
+  renderPomodoro();
+  persistPomodoro();
+}
+
+if (pomoToggleBtn) {
+  pomoToggleBtn.addEventListener("click", () =>
+    setPomoRunning(!pomo.running),
+  );
+}
+if (pomoResetBtn) {
+  pomoResetBtn.addEventListener("click", resetPomodoro);
+}
+if (pomoModeBtn) {
+  pomoModeBtn.addEventListener("click", switchPomoMode);
+}
+
+// --- Multi-display follow (v0.2 Phase 7, F21 — safer subset) -----
+// The app is still one window (see displays.rs). When either
+// display setting is on, the Rust side moves that one window to
+// the display the mouse is on. Polled every 10 s; a no-op when
+// following is off or there is only one display.
+async function followDisplay() {
+  try {
+    await invoke("follow_active_display", { expanded });
+  } catch (e) {
+    console.warn("follow_active_display failed:", e);
+  }
 }
 
 // --- Calendar + Reminders (Phase 3, F2/F3) ------------------------
@@ -1826,6 +2131,18 @@ async function init() {
   renderMirrorState("off", "", null);
   renderBattery();
   renderNowPlaying();
+  // Pomodoro (Phase 7, F20): restore the persisted snapshot, then
+  // render. The countdown ticks from the 1 s interval below.
+  pomoFromSettings();
+  renderPomodoro();
+  // Weather (Phase 7, F11): first fetch, then every 15 min.
+  await refreshWeather();
+  // Bluetooth (Phase 7, F10): establish the baseline list so the
+  // row can render on first expand without a connect peek.
+  await refreshBluetooth();
+  // Multi-display follow (Phase 7, F21): first check now, then
+  // every 10 s. No-op when following is off / single display.
+  await followDisplay();
   await refreshShelf();
   await refreshAirdropAvailability();
   await refreshAudioOutputs();
@@ -1863,6 +2180,13 @@ async function init() {
   setInterval(refreshTime, 15000);
   setInterval(refreshBattery, 30000);
   setInterval(refreshNowPlaying, 5000);
+  // Weather (Phase 7, F11): re-fetch every 15 min.
+  setInterval(refreshWeather, 15 * 60 * 1000);
+  // Bluetooth (Phase 7, F10): every 60 s — polls while expanded,
+  // and at most every 5 min while collapsed (see bluetoothTick).
+  setInterval(bluetoothTick, 60 * 1000);
+  // Multi-display follow (Phase 7, F21): every 10 s.
+  setInterval(followDisplay, 10 * 1000);
   // Calendar/reminders poll only while the panel is expanded, so a
   // closed panel never wakes Calendar.app / Reminders.app.
   setInterval(() => {

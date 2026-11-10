@@ -10,7 +10,9 @@
 
 pub mod airdrop;
 pub mod audio;
+pub mod bluetooth;
 pub mod calendar;
+pub mod displays;
 pub mod hud;
 pub mod media;
 pub mod mirror;
@@ -131,7 +133,20 @@ pub fn run() {
                 let native_window = window.as_ref().window();
                 notch::apply_notch_window(&native_window);
                 // Position at the collapsed pill size first, then show.
-                if let Ok(geometry) = notch::get_notch_geometry(app.app_handle().clone()) {
+                // Phase 7 (F21): open on the display with the notch
+                // when there is one (it need not be the main screen
+                // when an external display is the main display), else
+                // the primary display.
+                let app_handle = app.app_handle().clone();
+                if let Some(monitor) = displays::preferred_display(&app_handle) {
+                    let geometry = notch::geometry_for_monitor(&app_handle, &monitor);
+                    let _ = notch::place_window_on_monitor(
+                        &native_window,
+                        &monitor,
+                        geometry.idle_width,
+                        geometry.idle_height,
+                    );
+                } else if let Ok(geometry) = notch::get_notch_geometry(app_handle) {
                     let x = (geometry.screen_width - geometry.idle_width) / 2.0;
                     let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
                         width: geometry.idle_width,
@@ -173,6 +188,9 @@ pub fn run() {
             notch::get_notch_geometry,
             notch::set_notch_expanded,
             notch::set_notch_peek,
+            displays::get_displays,
+            displays::follow_active_display,
+            bluetooth::get_bluetooth_devices,
             media::get_now_playing,
             media::media_play_pause,
             media::media_next,

@@ -36,6 +36,14 @@ pub struct Settings {
     pub osd: OsdSettings,
     pub shortcuts: ShortcutsSettings,
     pub weather: WeatherSettings,
+    /// Pomodoro timer state (v0.2 Phase 7, F20). The panel owns the
+    /// live countdown; this struct is only the persisted snapshot
+    /// (mode + remaining seconds + whether it was running), restored
+    /// on start. `running` restores as-is and the countdown resumes
+    /// from the saved remaining time — the wall-clock time while the
+    /// app was closed is not subtracted, so it can run a little long
+    /// after a restart; that is documented, not hidden.
+    pub pomodoro: PomodoroSettings,
 }
 
 impl Default for Settings {
@@ -52,6 +60,7 @@ impl Default for Settings {
             osd: OsdSettings::default(),
             shortcuts: ShortcutsSettings::default(),
             weather: WeatherSettings::default(),
+            pomodoro: PomodoroSettings::default(),
         }
     }
 }
@@ -275,6 +284,26 @@ impl Default for WeatherSettings {
         Self {
             enabled: false,
             city: "Taipei".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PomodoroSettings {
+    /// "focus" | "break".
+    pub mode: String,
+    /// Seconds left in the current period.
+    pub remaining_secs: u64,
+    pub running: bool,
+}
+
+impl Default for PomodoroSettings {
+    fn default() -> Self {
+        Self {
+            mode: "focus".to_string(),
+            remaining_secs: 25 * 60,
+            running: false,
         }
     }
 }

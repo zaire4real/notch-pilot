@@ -18,6 +18,7 @@
       <button class="side-item" type="button" data-section="mirror" data-i18n="secMirror"></button>
       <button class="side-item" type="button" data-section="battery" data-i18n="secBattery"></button>
       <button class="side-item" type="button" data-section="osd" data-i18n="secOsd"></button>
+      <button class="side-item" type="button" data-section="weather" data-i18n="secWeather"></button>
       <button class="side-item" type="button" data-section="notifications" data-i18n="secNotifications"></button>
       <button class="side-item" type="button" data-section="shortcuts" data-i18n="secShortcuts"></button>
       <button class="side-item" type="button" data-section="about" data-i18n="secAbout"></button>
@@ -89,6 +90,7 @@
           <label for="notch-follow-display" data-i18n="followActiveDisplay"></label>
           <input id="notch-follow-display" type="checkbox" data-setting="notch.follow_active_display" />
         </div>
+        <p class="muted" data-i18n="displaysNote"></p>
       </section>
 
       <section class="panel" data-panel="appearance">
@@ -223,6 +225,23 @@
         </div>
         <p class="muted" data-i18n="osdNote"></p>
         <p class="muted" data-i18n="osdBacklightNote"></p>
+      </section>
+
+      <!-- Weather (Phase 7, F11 — NotchPilot extra, not original
+           parity): enable + city, wired to settings.weather. The
+           generic data-setting wiring in settings.js handles both
+           controls; no code change was needed there. -->
+      <section class="panel" data-panel="weather">
+        <h2 data-i18n="secWeather"></h2>
+        <div class="row">
+          <label for="weather-enabled" data-i18n="weatherEnabled"></label>
+          <input id="weather-enabled" type="checkbox" data-setting="weather.enabled" />
+        </div>
+        <div class="row">
+          <label for="weather-city" data-i18n="weatherCity"></label>
+          <input id="weather-city" type="text" data-setting="weather.city" />
+        </div>
+        <p class="muted" data-i18n="weatherExtraNote"></p>
       </section>
 
       <section class="panel" data-panel="notifications">

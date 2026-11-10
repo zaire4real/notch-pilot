@@ -83,6 +83,10 @@
             </div>
             <div id="cal-next" class="cal-next muted" data-i18n="calNoEvents"></div>
           </div>
+          <!-- Weather (Phase 7, F11 — NotchPilot extra, Open-Meteo).
+               Shown only when enabled + a city is configured + the
+               fetch succeeds; otherwise hidden, never an error. -->
+          <div id="weather-line" class="weather-line muted" hidden></div>
           <div id="cal-status" class="cal-status muted" hidden></div>
           <ul id="cal-events" class="cal-events">
             <li class="muted" data-i18n="calNoEvents"></li>
@@ -107,6 +111,25 @@
           <img id="mirror-img-large" class="mirror-img-large" alt="" hidden />
           <div id="mirror-status-large" class="mirror-status-large muted"></div>
           <div class="muted mirror-hint" data-i18n="mirrorTapAgain"></div>
+        </section>
+
+        <!-- Pomodoro timer (Phase 7, F20): pure frontend, 25/5 min.
+             State persists in settings.json (see main.js). -->
+        <section class="pomodoro">
+          <span class="pomo-icon">🍅</span>
+          <span id="pomo-time" class="pomo-time">25:00</span>
+          <span id="pomo-mode" class="pomo-mode muted"></span>
+          <button id="btn-pomo-toggle" type="button" data-i18n-title="pomodoroStart">▶</button>
+          <button id="btn-pomo-reset" type="button" data-i18n-title="pomodoroReset">↺</button>
+          <button id="btn-pomo-mode" type="button" data-i18n-title="pomodoroBreak">⇄</button>
+        </section>
+
+        <!-- Bluetooth row (Phase 7, F10): connected device names
+             from system_profiler. Hidden when Bluetooth is
+             unavailable (e.g. non-macOS) — never an error line. -->
+        <section id="bt-row" class="bt-row" hidden>
+          <span class="bt-icon">🔵</span>
+          <span id="bt-text" class="bt-text muted"></span>
         </section>
 
         <section class="bottom-strip">

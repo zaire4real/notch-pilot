@@ -628,3 +628,64 @@ html, body {
   min-height: 14px;
 }
 .airdrop-status.error { color: #ff9a9a; }
+
+/* Weather line (Phase 7, F11 — NotchPilot extra): current temp +
+   condition under the calendar header. Hidden unless enabled +
+   a city is configured + the fetch succeeds. */
+.weather-line {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bluetooth row (Phase 7, F10): connected device names. Hidden
+   when Bluetooth is unavailable — never an error line. */
+.bt-row {
+  border-top: 1px solid #222;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bt-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Pomodoro timer (Phase 7, F20): compact row between the calendar
+   block and the bottom strip — icon + countdown + mode + three
+   small round buttons (start/pause, reset, switch focus/break). */
+.pomodoro {
+  border-top: 1px solid #222;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.pomo-icon { font-size: 14px; }
+.pomo-time {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+}
+.pomo-mode { flex: 1; }
+.pomodoro button {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid #333;
+  background: #1c1c1c;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.pomodoro button:hover { background: #2a2a2a; }
+.pomodoro button:active { transform: scale(0.95); }
