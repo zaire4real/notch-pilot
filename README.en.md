@@ -178,6 +178,20 @@ npm run tauri dev
 
 Before publishing, check: `.gitignore` excludes `target/`, `node_modules/`, and `.DS_Store`; `LICENSE` and all three READMEs (`README.md`, `README.zh-CN.md`, `README.en.md`) are in the root; do not push the built `.app` / `.dmg` (they live in `src-tauri/target/` and are ignored).
 
+## Download the .dmg (no need to build it yourself)
+
+Just download it — no need to install Rust / Node to build:
+
+**Download from: <https://github.com/zaire4real/notch-pilot/releases>**
+
+1. Open the Releases page above and pick the latest release (currently **v0.1.0**).
+2. Under **Assets**, download `NotchPilot_0.1.0_aarch64.dmg`.
+3. Double-click it to install, or drag it to Applications.
+
+> This `.dmg` is **unsigned** (there is no Apple Developer account). On first launch macOS will block it; right-click it and choose **Open**, or go to **System Settings > Privacy & Security** and click **Open Anyway**.
+
+Fallback: if the version you want is not in Releases yet, go to the repo's **Actions** tab → **Build macOS DMG** → pick the latest successful run, and download **NotchPilot-macos-aarch64-dmg** from **Artifacts** at the bottom (requires a GitHub login, and artifacts expire).
+
 ## License
 
 MIT, see `LICENSE`. This project contains no boringNotch source code and is not an official TheBoredTeam project.
