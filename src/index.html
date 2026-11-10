@@ -68,8 +68,10 @@
              AppleScript to Calendar.app / Reminders.app). The
              weekday/date/time header is filled by refreshTime();
              the event list, TOMORROW row, countdown and reminders
-             are filled by refreshCalendar() in main.js. -->
-        <section class="calendar-block">
+             are filled by refreshCalendar() in main.js. The mirror
+             enlarged view (Phase 5) replaces this block in place
+             while it is open. -->
+        <section id="calendar-block" class="calendar-block">
           <div class="cal-header">
             <div class="cal-date-wrap">
               <div id="cal-weekday" class="cal-weekday"></div>
@@ -93,13 +95,28 @@
           </div>
         </section>
 
+        <!-- Mirror enlarged view (Phase 5): replaces the calendar
+             block in place while open; tapping the mirror tile
+             again (or the view itself) shrinks it back. The large
+             image is fed by the same frame poll as the tile. -->
+        <section id="mirror-large" class="mirror-large" hidden>
+          <img id="mirror-img-large" class="mirror-img-large" alt="" hidden />
+          <div id="mirror-status-large" class="mirror-status-large muted"></div>
+          <div class="muted mirror-hint" data-i18n="mirrorTapAgain"></div>
+        </section>
+
         <section class="bottom-strip">
-          <!-- Mirror tile: placeholder in Phase 2 (live preview comes
-               in Phase 5). -->
-          <button id="mirror-tile" class="mirror-tile" type="button">
+          <!-- Mirror tile (Phase 5: live preview). The <img> is
+               filled by the frame poll while the panel is open;
+               before the first frame (or on any failure) the tile
+               shows the ◉ label plus a status line — never a
+               silent blank tile. Tapping toggles the enlarged view
+               above. Shape (circle/rounded) comes from Settings. -->
+          <button id="mirror-tile" class="mirror-tile" type="button" data-i18n-title="mirrorTapEnlarge">
+            <img id="mirror-img" class="mirror-img" alt="" hidden />
             <span class="mirror-dot">◉</span>
-            <span data-i18n="secMirror"></span>
-            <span class="muted mirror-soon" data-i18n="mirrorSoon"></span>
+            <span class="mirror-label" data-i18n="secMirror"></span>
+            <span id="mirror-status" class="muted mirror-status"></span>
           </button>
           <button id="shelf-chip" class="shelf-chip" type="button"></button>
         </section>

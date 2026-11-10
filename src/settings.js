@@ -234,6 +234,29 @@ async function populateAudioOutputs() {
   }
 }
 
+// Camera selector (Phase 5): one option per real video device
+// (value = device unique ID, which is what settings.mirror.camera
+// stores). The "Default camera" option is already in the HTML.
+// Populated before populateForm so the saved value can select the
+// right option.
+async function populateCameras() {
+  const select = $("mirror-camera");
+  if (!select) return;
+  let cameras = [];
+  try {
+    cameras = await invoke("mirror_cameras");
+  } catch (e) {
+    console.warn("mirror_cameras failed:", e);
+  }
+  select.querySelectorAll("option:not([value=''])").forEach((o) => o.remove());
+  for (const cam of cameras) {
+    const opt = document.createElement("option");
+    opt.value = cam.id;
+    opt.textContent = cam.name;
+    select.appendChild(opt);
+  }
+}
+
 async function init() {
   let settings = null;
   try {
@@ -251,6 +274,7 @@ async function init() {
     applyI18n();
   }
   await populateAudioOutputs();
+  await populateCameras();
   populateForm(currentSettings);
   // If the saved output device is unplugged, its UID matches no
   // option and the select would render blank — show System instead.
@@ -263,6 +287,17 @@ async function init() {
     outSel.value !== currentSettings.media.audio_output
   ) {
     outSel.value = "system";
+  }
+  // Same for a saved camera that is no longer plugged in: show the
+  // Default camera option instead (saved value left alone).
+  const camSel = $("mirror-camera");
+  if (
+    camSel &&
+    currentSettings.mirror &&
+    currentSettings.mirror.camera &&
+    camSel.value !== currentSettings.mirror.camera
+  ) {
+    camSel.value = "";
   }
   wireControls();
   await listenSettingsChanged();

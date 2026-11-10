@@ -48,6 +48,13 @@ const npVizLabelEl = $("np-viz-label");
 const pillVizEl = $("pill-viz");
 const airdropBtnEl = $("btn-airdrop");
 const airdropStatusEl = $("airdrop-status");
+const mirrorTileEl = $("mirror-tile");
+const mirrorImgEl = $("mirror-img");
+const mirrorStatusEl = $("mirror-status");
+const mirrorLargeEl = $("mirror-large");
+const mirrorImgLargeEl = $("mirror-img-large");
+const mirrorStatusLargeEl = $("mirror-status-large");
+const calBlockEl = $("calendar-block");
 const viewHomeEl = $("view-home");
 const viewShelfEl = $("view-shelf");
 const shelfChipEl = $("shelf-chip");
@@ -807,6 +814,187 @@ async function sendShelfViaAirdrop() {
   updateAirdropButton();
 }
 
+// --- Camera mirror (v0.2 Phase 5, F4) -----------------------------
+// The session runs ONLY while the panel is open: syncMirror()
+// starts it on expand and stops it on collapse (or when the
+// mirror is disabled in Settings), so the camera light is on
+// only while the preview is visible. Frames are polled at ~8 Hz
+// from Rust (which throttles the capture to ~11 fps); each frame
+// is a JPEG data: URL. Every non-running status shows a clear
+// message in the tile — never a silent blank tile (risk R7).
+// Tapping the tile enlarges the preview in place of the calendar
+// block; tapping again shrinks it back.
+const MIRROR_POLL_MS = 120;
+let mirrorEnlarged = false;
+let mirrorTimer = null;
+let mirrorRunning = false;
+let mirrorCamera = "";
+let mirrorLast = { status: "off", message: "", frame: null };
+
+function mirrorEnabled() {
+  return !!(
+    lastSettings &&
+    lastSettings.mirror &&
+    lastSettings.mirror.enabled
+  );
+}
+
+function mirrorCameraId() {
+  return (lastSettings && lastSettings.mirror && lastSettings.mirror.camera) || "";
+}
+
+// Shape (circle / rounded) from Settings → Mirror, applied to
+// both the tile image and the enlarged image.
+function applyMirrorShape() {
+  const shape =
+    (lastSettings && lastSettings.mirror && lastSettings.mirror.shape) ||
+    "rounded";
+  for (const img of [mirrorImgEl, mirrorImgLargeEl]) {
+    if (!img) continue;
+    img.classList.toggle("shape-circle", shape === "circle");
+    img.classList.toggle("shape-rounded", shape !== "circle");
+  }
+}
+
+function setMirrorEnlarged(next) {
+  mirrorEnlarged = next;
+  if (calBlockEl) calBlockEl.hidden = next;
+  if (mirrorLargeEl) mirrorLargeEl.hidden = !next;
+}
+
+function mirrorStatusText(status, message) {
+  switch (status) {
+    case "starting":
+    case "running":
+    case "waiting_permission":
+      return t("mirrorWaiting");
+    case "permission_denied":
+      return t("mirrorPermission");
+    case "no_camera":
+      return t("mirrorNoCamera");
+    case "error":
+      return message || t("mirrorLoadFailed");
+    case "off":
+      return mirrorEnabled() ? "" : t("mirrorOff");
+    default:
+      return message || "";
+  }
+}
+
+// Render one mirror_frame / mirror_start result into the tile and
+// the enlarged view. `frameUrl` hides the ◉ label and status text;
+// without a frame the status text is always shown.
+function renderMirrorState(status, message, frameUrl) {
+  mirrorLast = { status, message: message || "", frame: frameUrl || null };
+  const live = !!frameUrl;
+  if (mirrorTileEl) {
+    mirrorTileEl.classList.toggle("live", live);
+    mirrorTileEl.classList.toggle("disabled", !mirrorEnabled());
+  }
+  for (const img of [mirrorImgEl, mirrorImgLargeEl]) {
+    if (!img) continue;
+    if (live) {
+      if (img.getAttribute("src") !== frameUrl) img.src = frameUrl;
+      img.hidden = false;
+    } else {
+      img.hidden = true;
+      img.removeAttribute("src");
+    }
+  }
+  const text = live ? "" : mirrorStatusText(status, message || "");
+  if (mirrorStatusEl) mirrorStatusEl.textContent = text;
+  if (mirrorStatusLargeEl) mirrorStatusLargeEl.textContent = text;
+}
+
+async function pollMirror() {
+  try {
+    const res = await invoke("mirror_frame");
+    if (!res) return;
+    renderMirrorState(res.status, res.message || "", res.frame || null);
+    if (
+      res.status === "permission_denied" ||
+      res.status === "error" ||
+      res.status === "no_camera"
+    ) {
+      // The Rust side stopped the session (denied in the prompt,
+      // or no frames arrived) — stop polling so the tile keeps
+      // this message instead of flipping to "off". The next expand
+      // retries the start.
+      if (mirrorTimer !== null) {
+        clearInterval(mirrorTimer);
+        mirrorTimer = null;
+      }
+      mirrorRunning = false;
+      mirrorCamera = "";
+    }
+  } catch (e) {
+    console.warn("mirror_frame failed:", e);
+    renderMirrorState("error", "", null);
+  }
+}
+
+async function startMirror() {
+  const camera = mirrorCameraId();
+  if (mirrorRunning && mirrorCamera === camera) return;
+  // A camera change while running: stop the old session first so
+  // the camera is released before the new one starts.
+  if (mirrorRunning) await stopMirror();
+  mirrorRunning = true;
+  mirrorCamera = camera;
+  let started = false;
+  try {
+    const res = await invoke("mirror_start", { camera });
+    if (res) {
+      renderMirrorState(res.state, res.message || "", null);
+      started = res.state === "running";
+    }
+  } catch (e) {
+    console.warn("mirror_start failed:", e);
+    renderMirrorState("error", "", null);
+  }
+  if (!started) {
+    // Denied / no camera / failed to start: show that state and
+    // do not poll — there is no session to poll.
+    mirrorRunning = false;
+    mirrorCamera = "";
+    return;
+  }
+  if (mirrorTimer === null) {
+    mirrorTimer = setInterval(pollMirror, MIRROR_POLL_MS);
+    pollMirror();
+  }
+}
+
+async function stopMirror() {
+  if (mirrorTimer !== null) {
+    clearInterval(mirrorTimer);
+    mirrorTimer = null;
+  }
+  if (!mirrorRunning) {
+    setMirrorEnlarged(false);
+    renderMirrorState("off", "", null);
+    return;
+  }
+  mirrorRunning = false;
+  mirrorCamera = "";
+  try {
+    await invoke("mirror_stop");
+  } catch (e) {
+    console.warn("mirror_stop failed:", e);
+  }
+  setMirrorEnlarged(false);
+  renderMirrorState("off", "", null);
+}
+
+// Start on expand (if enabled), stop on collapse / disable.
+function syncMirror() {
+  if (expanded && mirrorEnabled()) {
+    startMirror();
+  } else {
+    stopMirror();
+  }
+}
+
 function applyLanguage(lang) {
   setLanguage(lang);
   applyI18n();
@@ -816,6 +1004,8 @@ function applyLanguage(lang) {
   renderCalendar();
   renderReminders();
   refreshTime();
+  // Re-render the mirror status line (dynamic text, not data-i18n).
+  renderMirrorState(mirrorLast.status, mirrorLast.message, mirrorLast.frame);
   // Rebuilds the output selector so its "System default" option is
   // translated too.
   refreshAudioOutputs();
@@ -888,6 +1078,10 @@ function applySettings(settings) {
   }
   // The AirDrop toggle (Settings → Shelf) hides/shows the button.
   updateAirdropButton();
+  // Mirror toggles / shape / camera may have changed (e.g. from
+  // the Settings window): restart or stop the session to match.
+  applyMirrorShape();
+  syncMirror();
 }
 
 // Switch the system default output to the device with this UID.
@@ -967,6 +1161,8 @@ async function setExpanded(next) {
     // Calendar/reminders can change while the panel is closed too.
     refreshCalendar();
   }
+  // Camera mirror (Phase 5): start on expand, stop on collapse.
+  syncMirror();
   try {
     await invoke("set_notch_expanded", { expanded });
   } catch (e) {
@@ -998,6 +1194,19 @@ $("btn-settings").addEventListener("click", () => {
 // Shelf chip (Home bottom strip) ↔ Back button (Shelf view).
 $("shelf-chip").addEventListener("click", () => showShelfView());
 $("btn-shelf-back").addEventListener("click", () => showHomeView());
+
+// Mirror tile (Phase 5): tap to enlarge in place of the calendar
+// block, tap again to shrink. Does nothing while the mirror is
+// disabled in Settings.
+if (mirrorTileEl) {
+  mirrorTileEl.addEventListener("click", () => {
+    if (!mirrorEnabled()) return;
+    setMirrorEnlarged(!mirrorEnlarged);
+  });
+}
+if (mirrorLargeEl) {
+  mirrorLargeEl.addEventListener("click", () => setMirrorEnlarged(false));
+}
 
 // AirDrop button (Phase 4b): sends every file on the shelf.
 if (airdropBtnEl) {
@@ -1403,6 +1612,8 @@ async function init() {
   buildVizBars();
   await loadLanguageFromSettings();
   applyI18n();
+  applyMirrorShape();
+  renderMirrorState("off", "", null);
   renderBattery();
   renderNowPlaying();
   await refreshShelf();

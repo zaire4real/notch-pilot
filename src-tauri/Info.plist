@@ -14,5 +14,11 @@
 	<string>NotchPilot shows today's calendar events in the notch panel.</string>
 	<key>NSRemindersUsageDescription</key>
 	<string>NotchPilot shows your incomplete reminders in the notch panel and lets you check them off.</string>
+	<!-- v0.2 Phase 5 (camera mirror): the first-use camera prompt
+	     needs this key — without it macOS denies camera access
+	     without asking. The prompt appears when the mirror starts
+	     (creating the AVCaptureDeviceInput). -->
+	<key>NSCameraUsageDescription</key>
+	<string>NotchPilot shows a live camera mirror preview in the notch panel.</string>
 </dict>
 </plist>

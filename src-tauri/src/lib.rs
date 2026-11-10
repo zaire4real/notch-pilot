@@ -12,6 +12,7 @@ pub mod airdrop;
 pub mod audio;
 pub mod calendar;
 pub mod media;
+pub mod mirror;
 pub mod notch;
 pub mod settings;
 pub mod system;
@@ -195,6 +196,10 @@ pub fn run() {
             settings::open_shelf_file,
             airdrop::airdrop_available,
             airdrop::airdrop_shelf_files,
+            mirror::mirror_cameras,
+            mirror::mirror_start,
+            mirror::mirror_stop,
+            mirror::mirror_frame,
         ])
         .run(tauri::generate_context!())
         .expect("error while running notch-pilot");
