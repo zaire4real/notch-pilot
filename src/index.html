@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NotchPilot</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main id="notch" class="collapsed" aria-label="NotchPilot">
+    <!-- Collapsed pill: always visible -->
+    <div id="pill">
+      <span id="pill-time" class="pill-item">--:--</span>
+      <span class="pill-dot" aria-hidden="true">•</span>
+      <span id="pill-battery" class="pill-item">🔋 --%</span>
+    </div>
+
+    <!-- Expanded panel: shown on hover -->
+    <div id="panel">
+      <div id="lang-switcher" role="group">
+        <span id="lang-label" data-i18n="language"></span>
+        <button data-lang="zh-TW" type="button"></button>
+        <button data-lang="zh-CN" type="button"></button>
+        <button data-lang="en" type="button"></button>
+      </div>
+
+      <section class="row">
+        <div>
+          <div id="clock" class="big">--:--</div>
+          <div id="date" class="muted"></div>
+        </div>
+        <div id="battery" class="battery">🔋 --%</div>
+      </section>
+
+      <section class="row now-playing">
+        <div class="np-text">
+          <div id="np-title" class="np-title"></div>
+          <div id="np-artist" class="muted"></div>
+        </div>
+        <div class="np-controls">
+          <button id="btn-prev" type="button" data-i18n-title="previous">⏮</button>
+          <button id="btn-play" type="button" data-i18n-title="playPause">▶</button>
+          <button id="btn-next" type="button" data-i18n-title="next">⏭</button>
+        </div>
+      </section>
+
+      <section class="shelf">
+        <div class="shelf-title"><span data-i18n="shelf"></span> <span class="muted" data-i18n="shelfHint"></span></div>
+        <ul id="shelf-list"></ul>
+      </section>
+
+      <footer class="muted">
+        <span data-i18n="footerNote"></span>
+        <span class="settings-note" data-i18n="settingsNote"></span>
+      </footer>
+    </div>
+  </main>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
