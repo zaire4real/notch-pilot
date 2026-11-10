@@ -18,7 +18,6 @@ import {
 const $ = (id) => document.getElementById(id);
 
 const notchEl = $("notch");
-const pillTimeEl = $("pill-time");
 const pillBatteryEl = $("pill-battery");
 const clockEl = $("clock");
 const dateEl = $("date");
@@ -100,6 +99,26 @@ function applyLanguage(lang) {
   refreshTime();
 }
 
+// Animation speed from settings: slow 0.5s / normal 0.25s / fast 0.1s.
+// Applied as a CSS variable so the panel transition follows it.
+function applyAnimationSpeed(speed) {
+  const durations = { slow: "0.5s", normal: "0.25s", fast: "0.1s" };
+  document.documentElement.style.setProperty(
+    "--anim-duration",
+    durations[speed] || durations.normal,
+  );
+}
+
+function applySettings(settings) {
+  if (!settings) return;
+  if (settings.language) {
+    applyLanguage(settings.language);
+  }
+  if (settings.notch && settings.notch.animation_speed) {
+    applyAnimationSpeed(settings.notch.animation_speed);
+  }
+}
+
 async function setExpanded(next) {
   if (next === expanded) return;
   expanded = next;
@@ -124,10 +143,12 @@ notchEl.addEventListener("mouseleave", () => {
   expandTimer = setTimeout(() => setExpanded(false), 250);
 });
 
-// Language switcher: three buttons, instant update, persisted in
-// localStorage by setLanguage() in i18n.js.
-document.querySelectorAll("[data-lang]").forEach((btn) => {
-  btn.addEventListener("click", () => applyLanguage(btn.getAttribute("data-lang")));
+// Gear button opens the Settings window (the only place the
+// language can be changed now — the panel-top switcher is gone).
+$("btn-settings").addEventListener("click", () => {
+  invoke("open_settings").catch((e) =>
+    console.warn("open_settings failed:", e),
+  );
 });
 
 async function refreshTime() {
@@ -135,14 +156,12 @@ async function refreshTime() {
     const time = await invoke("get_time");
     // get_time returns "2026-11-10 11:33"
     const [date, hm] = String(time).split(" ");
-    if (hm) pillTimeEl.textContent = hm;
     if (clockEl) clockEl.textContent = hm || time;
     if (dateEl && date) dateEl.textContent = date;
   } catch (e) {
-    // Fallback: local JS clock, so the pill is never blank.
+    // Fallback: local JS clock, so the panel clock is never blank.
     const now = new Date();
     const hm = now.toTimeString().slice(0, 5);
-    pillTimeEl.textContent = hm;
     if (clockEl) clockEl.textContent = hm;
     if (dateEl) {
       dateEl.textContent = now.toLocaleDateString(DATE_LOCALES[getLanguage()] || "en-US");
@@ -212,10 +231,55 @@ async function listenDragDrop() {
   }
 }
 
-async function init() {
-  // Default language: stored choice, else system language
-  // (zh-TW first, then zh-CN, otherwise en), set in i18n.js.
+// The Settings window saves via set_settings, and Rust emits
+// "settings-changed" to every window. Re-apply language and
+// animation speed here so the panel updates instantly.
+async function listenSettingsChanged() {
+  if (!tauri || !tauri.event || typeof tauri.event.listen !== "function") {
+    return;
+  }
+  try {
+    await tauri.event.listen("settings-changed", (event) => {
+      applySettings(event && event.payload);
+    });
+  } catch (e) {
+    console.warn("settings-changed listen failed:", e);
+  }
+}
+
+// Language source of truth is settings.json (Rust). On first run
+// there is no file yet, so Rust returns an empty language and we
+// fall back to the localStorage cache / system detection — then
+// persist that detected choice so later starts use it.
+async function loadLanguageFromSettings() {
+  let settings = null;
+  try {
+    settings = await invoke("get_settings");
+  } catch (e) {
+    console.warn("get_settings failed:", e);
+  }
+  if (settings && settings.language) {
+    setLanguage(settings.language);
+    applyAnimationSpeed(
+      settings.notch ? settings.notch.animation_speed : "normal",
+    );
+    return;
+  }
   initLanguage();
+  // Persist the detected language for the next start.
+  try {
+    const base = settings || (await invoke("get_settings"));
+    if (base) {
+      base.language = getLanguage();
+      await invoke("set_settings", { settings: base });
+    }
+  } catch (e) {
+    console.warn("persisting detected language failed:", e);
+  }
+}
+
+async function init() {
+  await loadLanguageFromSettings();
   applyI18n();
   renderBattery();
   renderNowPlaying();
@@ -231,6 +295,7 @@ async function init() {
   await refreshBattery();
   await refreshNowPlaying();
   await listenDragDrop();
+  await listenSettingsChanged();
   setInterval(refreshTime, 15000);
   setInterval(refreshBattery, 30000);
   setInterval(refreshNowPlaying, 5000);

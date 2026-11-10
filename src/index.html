@@ -8,22 +8,14 @@
 </head>
 <body>
   <main id="notch" class="collapsed" aria-label="NotchPilot">
-    <!-- Collapsed pill: always visible -->
+    <!-- Collapsed pill: always visible. No clock here (original
+         parity): the menu bar already shows the time. -->
     <div id="pill">
-      <span id="pill-time" class="pill-item">--:--</span>
-      <span class="pill-dot" aria-hidden="true">•</span>
       <span id="pill-battery" class="pill-item">🔋 --%</span>
     </div>
 
     <!-- Expanded panel: shown on hover -->
     <div id="panel">
-      <div id="lang-switcher" role="group">
-        <span id="lang-label" data-i18n="language"></span>
-        <button data-lang="zh-TW" type="button"></button>
-        <button data-lang="zh-CN" type="button"></button>
-        <button data-lang="en" type="button"></button>
-      </div>
-
       <section class="row">
         <div>
           <div id="clock" class="big">--:--</div>
@@ -41,6 +33,7 @@
           <button id="btn-prev" type="button" data-i18n-title="previous">⏮</button>
           <button id="btn-play" type="button" data-i18n-title="playPause">▶</button>
           <button id="btn-next" type="button" data-i18n-title="next">⏭</button>
+          <button id="btn-settings" type="button" data-i18n-title="settings">⚙</button>
         </div>
       </section>
 

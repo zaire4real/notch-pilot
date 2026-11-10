@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NotchPilot 設定</title>
+  <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+  <div id="settings-app">
+    <nav id="sidebar" aria-label="Settings sections">
+      <div class="side-title" data-i18n="settings">設定</div>
+      <button class="side-item active" type="button" data-section="notch" data-i18n="secNotch"></button>
+      <button class="side-item" type="button" data-section="appearance" data-i18n="secAppearance"></button>
+      <button class="side-item" type="button" data-section="media" data-i18n="secMedia"></button>
+      <button class="side-item" type="button" data-section="calendar" data-i18n="secCalendar"></button>
+      <button class="side-item" type="button" data-section="shelf" data-i18n="secShelf"></button>
+      <button class="side-item" type="button" data-section="mirror" data-i18n="secMirror"></button>
+      <button class="side-item" type="button" data-section="battery" data-i18n="secBattery"></button>
+      <button class="side-item" type="button" data-section="osd" data-i18n="secOsd"></button>
+      <button class="side-item" type="button" data-section="notifications" data-i18n="secNotifications"></button>
+      <button class="side-item" type="button" data-section="shortcuts" data-i18n="secShortcuts"></button>
+      <button class="side-item" type="button" data-section="about" data-i18n="secAbout"></button>
+    </nav>
+
+    <main id="content">
+      <div id="saved-flash" class="saved-flash" data-i18n="settingsSaved" hidden></div>
+
+      <!-- Notch: the language selector lives at the top of this section. -->
+      <section class="panel active" data-panel="notch">
+        <h2 data-i18n="secNotch"></h2>
+        <div class="row">
+          <label data-i18n="language"></label>
+          <div class="segmented" role="group">
+            <button type="button" data-lang="zh-TW"></button>
+            <button type="button" data-lang="zh-CN"></button>
+            <button type="button" data-lang="en"></button>
+          </div>
+        </div>
+        <div class="row">
+          <label for="notch-idle-width" data-i18n="notchIdleWidth"></label>
+          <input id="notch-idle-width" type="number" min="0" step="1" data-setting="notch.idle_width" data-number="float" />
+        </div>
+        <div class="row">
+          <label for="notch-expanded-width" data-i18n="notchExpandedWidth"></label>
+          <input id="notch-expanded-width" type="number" min="0" step="1" data-setting="notch.expanded_width" data-number="float" />
+        </div>
+        <div class="row">
+          <label for="notch-expanded-height" data-i18n="notchExpandedHeight"></label>
+          <input id="notch-expanded-height" type="number" min="0" step="1" data-setting="notch.expanded_height" data-number="float" />
+        </div>
+        <div class="row">
+          <label for="notch-non-notch-height" data-i18n="notchNonNotchHeight"></label>
+          <input id="notch-non-notch-height" type="number" min="0" step="1" data-setting="notch.non_notch_height" data-number="float" />
+        </div>
+        <div class="row">
+          <label for="notch-hover-open" data-i18n="notchHoverOpen"></label>
+          <input id="notch-hover-open" type="number" min="0" step="10" data-setting="notch.hover_open_ms" data-number="int" />
+        </div>
+        <div class="row">
+          <label for="notch-hover-close" data-i18n="notchHoverClose"></label>
+          <input id="notch-hover-close" type="number" min="0" step="10" data-setting="notch.hover_close_ms" data-number="int" />
+        </div>
+        <div class="row">
+          <label data-i18n="animationSpeed"></label>
+          <div class="segmented" role="group">
+            <button type="button" data-setting="notch.animation_speed" data-value="slow" data-i18n="animSlow"></button>
+            <button type="button" data-setting="notch.animation_speed" data-value="normal" data-i18n="animNormal"></button>
+            <button type="button" data-setting="notch.animation_speed" data-value="fast" data-i18n="animFast"></button>
+          </div>
+        </div>
+        <div class="row">
+          <label for="notch-all-displays" data-i18n="showOnAllDisplays"></label>
+          <input id="notch-all-displays" type="checkbox" data-setting="notch.show_on_all_displays" />
+        </div>
+        <div class="row">
+          <label for="notch-follow-display" data-i18n="followActiveDisplay"></label>
+          <input id="notch-follow-display" type="checkbox" data-setting="notch.follow_active_display" />
+        </div>
+      </section>
+
+      <section class="panel" data-panel="appearance">
+        <h2 data-i18n="secAppearance"></h2>
+        <div class="row">
+          <label for="appearance-accent" data-i18n="accentColor"></label>
+          <input id="appearance-accent" type="color" data-setting="appearance.accent" />
+        </div>
+        <div class="row">
+          <label for="appearance-eyes" data-i18n="showEyes"></label>
+          <input id="appearance-eyes" type="checkbox" data-setting="appearance.show_eyes" />
+        </div>
+        <div class="row">
+          <label for="appearance-theme" data-i18n="theme"></label>
+          <select id="appearance-theme" data-setting="appearance.theme">
+            <option value="system" data-i18n="themeSystem"></option>
+            <option value="dark" data-i18n="themeDark"></option>
+            <option value="light" data-i18n="themeLight"></option>
+          </select>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="media">
+        <h2 data-i18n="secMedia"></h2>
+        <div class="row">
+          <label for="media-visualizer" data-i18n="visualizer"></label>
+          <input id="media-visualizer" type="checkbox" data-setting="media.visualizer" />
+        </div>
+        <div class="row">
+          <label for="media-visualizer-style" data-i18n="visualizerStyle"></label>
+          <select id="media-visualizer-style" data-setting="media.visualizer_style">
+            <option value="bars" data-i18n="visualizerBars"></option>
+            <option value="circular" data-i18n="visualizerCircular"></option>
+            <option value="wave" data-i18n="visualizerWave"></option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="media-lyrics" data-i18n="lyrics"></label>
+          <input id="media-lyrics" type="checkbox" data-setting="media.lyrics" />
+        </div>
+        <div class="row">
+          <label for="media-audio-output" data-i18n="audioOutput"></label>
+          <select id="media-audio-output" data-setting="media.audio_output">
+            <option value="system">System</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="media-gestures" data-i18n="mediaGestures"></label>
+          <input id="media-gestures" type="checkbox" data-setting="media.media_gestures" />
+        </div>
+      </section>
+
+      <section class="panel" data-panel="calendar">
+        <h2 data-i18n="secCalendar"></h2>
+        <div class="row">
+          <label for="calendar-calendars" data-i18n="showCalendars"></label>
+          <input id="calendar-calendars" type="text" data-setting="calendar.calendars" data-list="true" />
+        </div>
+        <div class="row">
+          <label for="calendar-reminders" data-i18n="reminders"></label>
+          <input id="calendar-reminders" type="checkbox" data-setting="calendar.reminders" />
+        </div>
+      </section>
+
+      <section class="panel" data-panel="shelf">
+        <h2 data-i18n="secShelf"></h2>
+        <div class="row">
+          <label for="shelf-airdrop" data-i18n="airdrop"></label>
+          <input id="shelf-airdrop" type="checkbox" data-setting="shelf.airdrop" />
+        </div>
+        <div class="row">
+          <label for="shelf-open-on-drop" data-i18n="openOnDrop"></label>
+          <input id="shelf-open-on-drop" type="checkbox" data-setting="shelf.open_on_drop" />
+        </div>
+        <div class="row">
+          <label for="shelf-keep-files" data-i18n="keepFiles"></label>
+          <input id="shelf-keep-files" type="checkbox" data-setting="shelf.keep_files" />
+        </div>
+      </section>
+
+      <section class="panel" data-panel="mirror">
+        <h2 data-i18n="secMirror"></h2>
+        <div class="row">
+          <label for="mirror-enabled" data-i18n="mirrorEnabled"></label>
+          <input id="mirror-enabled" type="checkbox" data-setting="mirror.enabled" />
+        </div>
+        <div class="row">
+          <label data-i18n="mirrorShape"></label>
+          <div class="segmented" role="group">
+            <button type="button" data-setting="mirror.shape" data-value="circle" data-i18n="shapeCircle"></button>
+            <button type="button" data-setting="mirror.shape" data-value="rounded" data-i18n="shapeRounded"></button>
+          </div>
+        </div>
+        <div class="row">
+          <label for="mirror-camera" data-i18n="camera"></label>
+          <input id="mirror-camera" type="text" data-setting="mirror.camera" />
+        </div>
+      </section>
+
+      <section class="panel" data-panel="battery">
+        <h2 data-i18n="secBattery"></h2>
+        <div class="row">
+          <label for="battery-show-percent" data-i18n="showPercent"></label>
+          <input id="battery-show-percent" type="checkbox" data-setting="battery.show_percent" />
+        </div>
+        <div class="row">
+          <label for="battery-charging" data-i18n="chargingIndicator"></label>
+          <select id="battery-charging" data-setting="battery.charging_indicator">
+            <option value="percent" data-i18n="chargingPercent"></option>
+            <option value="time" data-i18n="chargingTime"></option>
+            <option value="both" data-i18n="chargingBoth"></option>
+          </select>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="osd">
+        <h2 data-i18n="secOsd"></h2>
+        <div class="row">
+          <label for="osd-volume" data-i18n="osdVolume"></label>
+          <input id="osd-volume" type="checkbox" data-setting="osd.volume" />
+        </div>
+        <div class="row">
+          <label for="osd-brightness" data-i18n="osdBrightness"></label>
+          <input id="osd-brightness" type="checkbox" data-setting="osd.brightness" />
+        </div>
+        <div class="row">
+          <label for="osd-backlight" data-i18n="osdBacklight"></label>
+          <input id="osd-backlight" type="checkbox" data-setting="osd.backlight" />
+        </div>
+      </section>
+
+      <section class="panel" data-panel="notifications">
+        <h2 data-i18n="secNotifications"></h2>
+        <p class="muted" data-i18n="notificationsComingSoon"></p>
+      </section>
+
+      <section class="panel" data-panel="shortcuts">
+        <h2 data-i18n="secShortcuts"></h2>
+        <div class="row">
+          <label for="shortcut-open-settings" data-i18n="shortcutOpenSettings"></label>
+          <input id="shortcut-open-settings" type="text" data-setting="shortcuts.open_settings" />
+        </div>
+        <div class="row">
+          <label for="shortcut-toggle-panel" data-i18n="shortcutTogglePanel"></label>
+          <input id="shortcut-toggle-panel" type="text" data-setting="shortcuts.toggle_panel" />
+        </div>
+        <div class="row">
+          <label for="shortcut-play-pause" data-i18n="shortcutPlayPause"></label>
+          <input id="shortcut-play-pause" type="text" data-setting="shortcuts.play_pause" />
+        </div>
+        <div class="row">
+          <label for="shortcut-next" data-i18n="shortcutNext"></label>
+          <input id="shortcut-next" type="text" data-setting="shortcuts.next" />
+        </div>
+        <div class="row">
+          <label for="shortcut-prev" data-i18n="shortcutPrev"></label>
+          <input id="shortcut-prev" type="text" data-setting="shortcuts.previous" />
+        </div>
+      </section>
+
+      <section class="panel" data-panel="about">
+        <h2 data-i18n="secAbout"></h2>
+        <div class="row">
+          <span data-i18n="aboutVersion"></span>
+          <span class="value">0.2.0-dev</span>
+        </div>
+        <div class="row">
+          <span data-i18n="aboutRepo"></span>
+          <span class="value">github.com/zaire4real/notch-pilot</span>
+        </div>
+        <p class="muted">MIT</p>
+        <p class="muted" data-i18n="aboutCleanRoom"></p>
+        <p class="muted" data-i18n="aboutGatekeeper"></p>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="settings.js"></script>
+</body>
+</html>

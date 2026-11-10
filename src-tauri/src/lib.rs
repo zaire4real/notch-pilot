@@ -2,17 +2,118 @@
 //!
 //! Clean-room MVP: the window is a transparent, borderless overlay that
 //! sits at the top-centre of the main screen (over the notch, when there
-//! is one). All behaviour is implemented in `notch`, `media` and `system`.
+//! is one). All behaviour is implemented in `notch`, `media`, `system`
+//! and `settings`.
+//!
+//! v0.2 Phase 0 adds: a Settings window (`settings` module), a menu-bar
+//! tray icon (F22) and a Cmd+, global shortcut that opens Settings.
 
 pub mod media;
 pub mod notch;
+pub mod settings;
 pub mod system;
 
+use tauri::image::Image;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
+
+/// Build the menu-bar tray icon (a white notch pill, drawn in code so
+/// no binary asset is needed) with its menu. Errors are returned so the
+/// caller can decide whether a missing tray is fatal — it is not: the
+/// gear button and Cmd+, still open Settings without it.
+fn build_tray(app: &tauri::App) -> tauri::Result<()> {
+    let open_settings =
+        MenuItem::with_id(app, "open-settings", "Open Settings", true, None::<&str>)?;
+    let toggle_panel =
+        MenuItem::with_id(app, "toggle-panel", "Show/Hide Panel", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit NotchPilot", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open_settings, &toggle_panel, &quit])?;
+
+    TrayIconBuilder::with_id("main-tray")
+        .icon(tray_icon_image())
+        .icon_as_template(true)
+        .tooltip("NotchPilot")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "open-settings" => {
+                let _ = settings::open_settings_window(app);
+            }
+            "toggle-panel" => {
+                if let Some(main) = app.get_webview_window("main") {
+                    match main.is_visible() {
+                        Ok(true) => {
+                            let _ = main.hide();
+                        }
+                        _ => {
+                            let _ = main.show();
+                        }
+                    }
+                }
+            }
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            // Left-click the tray icon opens Settings; right-click
+            // shows the menu (the default behaviour).
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let _ = settings::open_settings_window(tray.app_handle());
+            }
+        })
+        .build(app)?;
+    Ok(())
+}
+
+/// White rounded pill (the collapsed notch bar) with a transparent
+/// camera-dot hole, 32x32 RGBA, drawn in code. Used as a template
+/// image so macOS renders it in menu-bar style.
+fn tray_icon_image() -> Image<'static> {
+    const W: usize = 32;
+    const H: usize = 32;
+    let mut rgba = vec![0u8; W * H * 4];
+    // Pill: centred at (16, 16), half-size (14, 4), corner radius 4.
+    // Camera dot: transparent hole of radius 2.5 at the centre.
+    for y in 0..H {
+        for x in 0..W {
+            let px = x as f64 + 0.5;
+            let py = y as f64 + 0.5;
+            let qx = (px - 16.0).abs() - (14.0 - 4.0);
+            let qy = (py - 16.0).abs() - (4.0 - 4.0);
+            let ax = qx.max(0.0);
+            let ay = qy.max(0.0);
+            let dist = (ax * ax + ay * ay).sqrt() + qx.max(qy).min(0.0) - 4.0;
+            let mut coverage = (0.5 - dist).clamp(0.0, 1.0);
+            let dot = ((px - 16.0).powi(2) + (py - 16.0).powi(2)).sqrt();
+            if dot < 2.5 {
+                coverage = 0.0;
+            }
+            let i = (y * W + x) * 4;
+            rgba[i] = 255;
+            rgba[i + 1] = 255;
+            rgba[i + 2] = 255;
+            rgba[i + 3] = (coverage * 255.0) as u8;
+        }
+    }
+    Image::new_owned(rgba, W as u32, H as u32)
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Cmd+, opens Settings. Registered here (not via the plugin
+        // builder) so a registration failure — e.g. the shortcut is
+        // already taken by another app — is ignored instead of
+        // failing the whole app start. The plugin's own setup runs
+        // before this setup closure, so global_shortcut() state
+        // exists by now.
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             // The main window starts invisible in tauri.conf.json so we can
             // position it from the real notch geometry before showing it.
@@ -37,6 +138,29 @@ pub fn run() {
                 }
                 let _ = window.show();
             }
+
+            // Menu-bar tray icon. Not fatal if it fails.
+            if let Err(e) = build_tray(app) {
+                eprintln!("notch-pilot: tray icon failed: {e}");
+            }
+
+            // Cmd+, (Super + Comma) opens Settings. Registration
+            // failure is ignored — the gear button and tray menu
+            // still open Settings.
+            {
+                use tauri_plugin_global_shortcut::{
+                    Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
+                };
+                let _ = app.global_shortcut().on_shortcut(
+                    Shortcut::new(Some(Modifiers::SUPER), Code::Comma),
+                    |app, _shortcut, event| {
+                        if event.state == ShortcutState::Pressed {
+                            let _ = settings::open_settings_window(app);
+                        }
+                    },
+                );
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -48,6 +172,9 @@ pub fn run() {
             media::media_previous,
             system::get_battery,
             system::get_time,
+            settings::get_settings,
+            settings::set_settings,
+            settings::open_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running notch-pilot");

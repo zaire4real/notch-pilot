@@ -27,7 +27,9 @@ html, body {
   height: 100%;
   background: var(--bg);
   border-radius: 0 0 22px 22px;
-  transition: border-radius 0.25s ease, background 0.25s ease;
+  /* Animation speed comes from settings (slow 0.5s / normal 0.25s /
+     fast 0.1s) via --anim-duration on :root. */
+  transition: border-radius var(--anim-duration, 0.25s) ease, background var(--anim-duration, 0.25s) ease;
   overflow: hidden;
 }
 
@@ -49,8 +51,6 @@ html, body {
 
 #notch.expanded #pill { display: none; }
 
-.pill-dot { color: var(--muted); }
-
 #panel {
   display: none;
   flex-direction: column;
@@ -58,34 +58,6 @@ html, body {
   padding: 12px 20px 14px;
   height: 100%;
 }
-
-#lang-switcher {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-#lang-switcher button {
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid #333;
-  background: transparent;
-  color: var(--muted);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-#lang-switcher button:hover { background: #222; color: #fff; }
-#lang-switcher button.active {
-  background: #fff;
-  border-color: #fff;
-  color: #000;
-  font-weight: 600;
-}
-
-.settings-note { display: block; margin-top: 4px; }
 
 #notch.expanded #panel { display: flex; }
 

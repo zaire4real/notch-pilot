@@ -1,0 +1,169 @@
+/* NotchPilot Settings window — standard macOS Settings style:
+   sidebar on the left, section content on the right. Adapts to the
+   system light/dark appearance. */
+
+:root {
+  color-scheme: light dark;
+  --bg: #f5f5f7;
+  --sidebar: #ececf1;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --border: #d2d2d7;
+  --accent: #007aff;
+  --row: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e1e;
+    --sidebar: #2a2a2e;
+    --text: #f5f5f7;
+    --muted: #98989d;
+    --border: #38383a;
+    --accent: #0a84ff;
+    --row: #2c2c2e;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", sans-serif;
+  font-size: 13px;
+}
+
+#settings-app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#sidebar {
+  width: 160px;
+  flex-shrink: 0;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  padding: 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.side-title {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 0 8px 12px;
+}
+
+.side-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.side-item:hover { background: rgba(128, 128, 128, 0.15); }
+.side-item.active { background: var(--accent); color: #fff; font-weight: 600; }
+
+#content {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+.panel h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.row label { flex: 1; }
+.row .value { font-weight: 600; }
+
+.row input[type="number"],
+.row input[type="text"],
+.row select {
+  width: 180px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--row);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.row input[type="color"] {
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--row);
+}
+
+.row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.segmented button {
+  padding: 5px 12px;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--row);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.segmented button:last-child { border-right: none; }
+.segmented button:hover { background: rgba(128, 128, 128, 0.15); }
+.segmented button.active { background: var(--accent); color: #fff; font-weight: 600; }
+
+.muted { color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+.saved-flash {
+  position: sticky;
+  top: 0;
+  float: right;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 1;
+}
