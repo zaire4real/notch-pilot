@@ -9,6 +9,7 @@
 //! tray icon (F22) and a Cmd+, global shortcut that opens Settings.
 
 pub mod audio;
+pub mod calendar;
 pub mod media;
 pub mod notch;
 pub mod settings;
@@ -176,6 +177,9 @@ pub fn run() {
             media::media_seek,
             audio::get_audio_outputs,
             audio::set_audio_output,
+            calendar::get_calendar_data,
+            calendar::get_reminders,
+            calendar::complete_reminder,
             visualizer::visualizer_start,
             visualizer::visualizer_stop,
             visualizer::visualizer_levels,

@@ -24,6 +24,14 @@ const pillEyesEl = $("pill-eyes");
 const calWeekdayEl = $("cal-weekday");
 const calDateEl = $("cal-date");
 const calTimeEl = $("cal-time");
+const calNextEl = $("cal-next");
+const calStatusEl = $("cal-status");
+const calEventsEl = $("cal-events");
+const calTomorrowEventEl = $("cal-tomorrow-event");
+const calRemindersWrapEl = $("cal-reminders-wrap");
+const remStatusEl = $("rem-status");
+const remListEl = $("rem-list");
+const remEmptyEl = $("rem-empty");
 const npTitleEl = $("np-title");
 const npArtistEl = $("np-artist");
 const playBtn = $("btn-play");
@@ -54,6 +62,8 @@ let tauri = window.__TAURI__ || null;
 let lastBattery = null;
 let lastNowPlaying = null;
 let lastSettings = null;
+let lastCalendar = null;
+let lastReminders = null;
 let shelfFiles = [];
 
 // Home ↔ Shelf view state (Phase 2: the shelf is its own view;
@@ -621,6 +631,8 @@ function applyLanguage(lang) {
   renderBattery();
   renderNowPlaying();
   renderShelf();
+  renderCalendar();
+  renderReminders();
   refreshTime();
   // Rebuilds the output selector so its "System default" option is
   // translated too.
@@ -678,6 +690,9 @@ function applySettings(settings) {
     // Appearance toggles (e.g. show-eyes) re-render the pill.
     renderPillState();
   }
+  // Calendar/reminders settings may have changed (which calendars,
+  // reminders on/off): re-fetch so the section follows immediately.
+  refreshCalendar();
 }
 
 // Switch the system default output to the device with this UID.
@@ -754,6 +769,8 @@ async function setExpanded(next) {
   if (expanded) {
     // Devices can change while the panel is closed (AirPods connect).
     refreshAudioOutputs();
+    // Calendar/reminders can change while the panel is closed too.
+    refreshCalendar();
   }
   try {
     await invoke("set_notch_expanded", { expanded });
@@ -835,6 +852,172 @@ async function refreshBattery() {
     console.warn("get_battery failed:", e);
   }
   renderBattery();
+}
+
+// --- Calendar + Reminders (Phase 3, F2/F3) ------------------------
+// Data comes from calendar.rs (AppleScript to Calendar.app /
+// Reminders.app). The header weekday/date/time is filled by
+// refreshTime(); this section fills the event list, the TOMORROW
+// row, the next-event countdown and the reminder checkboxes.
+function formatCountdown(mins) {
+  if (!Number.isFinite(mins) || mins <= 0) return t("calNow");
+  const m = Math.floor(mins);
+  if (m < 60) return `${m} ${t("calMinutesShort")}`;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest === 0
+    ? `${h} ${t("calHoursShort")}`
+    : `${h} ${t("calHoursShort")} ${rest} ${t("calMinutesShort")}`;
+}
+
+function eventTimeLabel(ev) {
+  if (!ev) return "";
+  if (ev.all_day) return t("calAllDay");
+  return (ev.start || "").slice(11) || "";
+}
+
+function renderCalendar() {
+  const data = lastCalendar;
+  if (!data) return;
+  if (calStatusEl) {
+    if (data.status === "ok") {
+      calStatusEl.hidden = true;
+    } else {
+      calStatusEl.hidden = false;
+      calStatusEl.textContent =
+        data.status === "not_running"
+          ? t("calNotRunning")
+          : data.status === "permission_denied"
+            ? t("calPermission")
+            : t("calLoadFailed");
+    }
+  }
+  if (calEventsEl) {
+    calEventsEl.innerHTML = "";
+    const events = Array.isArray(data.events) ? data.events : [];
+    if (events.length === 0) {
+      const li = document.createElement("li");
+      li.className = "muted";
+      li.textContent = t("calNoEvents");
+      calEventsEl.appendChild(li);
+    } else {
+      for (const ev of events) {
+        const li = document.createElement("li");
+        const time = document.createElement("span");
+        time.className = "cal-ev-time";
+        time.textContent = eventTimeLabel(ev);
+        li.appendChild(time);
+        li.appendChild(document.createTextNode(ev.title || ""));
+        calEventsEl.appendChild(li);
+      }
+    }
+  }
+  if (calNextEl) {
+    if (data.next && data.next.title) {
+      calNextEl.textContent = `${t("calNext")}: ${data.next.title} · ${formatCountdown(data.next.minutes_until)}`;
+    } else {
+      calNextEl.textContent = t("calNoEvents");
+    }
+  }
+  if (calTomorrowEventEl) {
+    if (data.tomorrow) {
+      calTomorrowEventEl.textContent = `${eventTimeLabel(data.tomorrow)}  ${data.tomorrow.title}`;
+    } else {
+      calTomorrowEventEl.textContent = t("calTomorrowNone");
+    }
+  }
+}
+
+function renderReminders() {
+  const data = lastReminders;
+  const showRem =
+    !lastSettings ||
+    !lastSettings.calendar ||
+    lastSettings.calendar.reminders !== false;
+  if (calRemindersWrapEl) {
+    calRemindersWrapEl.hidden =
+      !showRem || (data && data.status === "disabled");
+  }
+  if (!showRem || !data) return;
+  if (remStatusEl) {
+    if (data.status === "ok") {
+      remStatusEl.hidden = true;
+    } else {
+      remStatusEl.hidden = false;
+      remStatusEl.textContent =
+        data.status === "not_running"
+          ? t("remNotRunning")
+          : data.status === "permission_denied"
+            ? t("remPermission")
+            : t("remLoadFailed");
+    }
+  }
+  const items = Array.isArray(data.reminders) ? data.reminders : [];
+  if (remEmptyEl) {
+    remEmptyEl.hidden = !(data.status === "ok" && items.length === 0);
+  }
+  if (remListEl) {
+    remListEl.innerHTML = "";
+    for (const item of items) {
+      const li = document.createElement("li");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.setAttribute("aria-label", item.title || "");
+      cb.addEventListener("change", () => completeReminder(item.id));
+      const label = document.createElement("label");
+      label.textContent = item.title || "";
+      li.appendChild(cb);
+      li.appendChild(label);
+      if (item.due) {
+        const due = document.createElement("span");
+        due.className = "rem-due";
+        due.textContent = item.due.slice(5); // "11-10 18:00"
+        li.appendChild(due);
+      }
+      remListEl.appendChild(li);
+    }
+  }
+}
+
+async function completeReminder(id) {
+  try {
+    await invoke("complete_reminder", { reminder_id: id });
+  } catch (e) {
+    console.warn("complete_reminder failed:", e);
+  }
+  // Re-fetch so the checked-off reminder disappears (or reappears
+  // if the check-off failed).
+  setTimeout(refreshCalendar, 400);
+}
+
+async function refreshCalendar() {
+  try {
+    lastCalendar = await invoke("get_calendar_data");
+  } catch (e) {
+    console.warn("get_calendar_data failed:", e);
+    lastCalendar = {
+      status: "unavailable",
+      events: [],
+      tomorrow: null,
+      next: null,
+    };
+  }
+  renderCalendar();
+  const showRem =
+    !lastSettings ||
+    !lastSettings.calendar ||
+    lastSettings.calendar.reminders !== false;
+  if (showRem) {
+    try {
+      lastReminders = await invoke("get_reminders");
+    } catch (e) {
+      console.warn("get_reminders failed:", e);
+      lastReminders = { status: "unavailable", reminders: [] };
+    }
+  } else {
+    lastReminders = { status: "disabled", reminders: [] };
+  }
+  renderReminders();
 }
 
 async function refreshNowPlaying() {
@@ -1029,11 +1212,17 @@ async function init() {
   await refreshTime();
   await refreshBattery();
   await refreshNowPlaying();
+  await refreshCalendar();
   await listenDragDrop();
   await listenSettingsChanged();
   setInterval(refreshTime, 15000);
   setInterval(refreshBattery, 30000);
   setInterval(refreshNowPlaying, 5000);
+  // Calendar/reminders poll only while the panel is expanded, so a
+  // closed panel never wakes Calendar.app / Reminders.app.
+  setInterval(() => {
+    if (expanded) refreshCalendar();
+  }, 300000);
   setInterval(tickPosition, 1000);
 }
 

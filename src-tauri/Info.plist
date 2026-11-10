@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Merged by the Tauri CLI into the generated Info.plist
+	     (see https://tauri.app/distribute/macos-application-bundle/
+	     "Native configuration"). These usage descriptions are for
+	     EventKit calendar/reminder access (the plan's Approach 2);
+	     v0.2 Phase 3 reads Calendar/Reminders via AppleScript
+	     instead, which is gated by the Automation TCC prompt, not
+	     by these keys — but including them now means a later
+	     EventKit move needs no second plist change. -->
+	<key>NSCalendarsUsageDescription</key>
+	<string>NotchPilot shows today's calendar events in the notch panel.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>NotchPilot shows your incomplete reminders in the notch panel and lets you check them off.</string>
+</dict>
+</plist>

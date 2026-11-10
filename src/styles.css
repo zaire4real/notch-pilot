@@ -360,9 +360,44 @@ html, body {
   font-size: 11px;
   letter-spacing: 0.05em;
 }
-.cal-reminders { font-size: 13px; display: flex; gap: 8px; }
+#cal-tomorrow-event {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+/* Status line shown only when the calendar/reminders cannot load
+   (permission denied, app not running, …) — never a silent blank
+   section (R7). */
+.cal-status { font-size: 12px; }
+/* Event rows: time (muted, fixed width) + title. */
+.cal-ev-time { color: var(--muted); margin-right: 8px; }
+/* Reminders block (Phase 3): title + checkbox rows. */
+.cal-reminders-wrap { font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
 .rem-title { font-weight: 600; }
-.cal-note { font-size: 11px; }
+.rem-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rem-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rem-list input[type="checkbox"] {
+  flex-shrink: 0;
+  accent-color: #fff;
+  cursor: pointer;
+}
+.rem-list label { cursor: pointer; overflow: hidden; text-overflow: ellipsis; }
+.rem-due { color: var(--muted); font-size: 11px; flex-shrink: 0; }
 
 /* Bottom strip: mirror tile + shelf chip (§5.2). */
 .bottom-strip {

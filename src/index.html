@@ -64,8 +64,11 @@
         </section>
         <div id="np-lyric" class="np-lyric muted" hidden></div>
 
-        <!-- Calendar block: VISUAL placeholder only in Phase 2 (real
-             events/reminders come in Phase 3 — no calendar.rs yet). -->
+        <!-- Calendar block: real data from Phase 3 (calendar.rs via
+             AppleScript to Calendar.app / Reminders.app). The
+             weekday/date/time header is filled by refreshTime();
+             the event list, TOMORROW row, countdown and reminders
+             are filled by refreshCalendar() in main.js. -->
         <section class="calendar-block">
           <div class="cal-header">
             <div class="cal-date-wrap">
@@ -74,18 +77,20 @@
             </div>
             <div id="cal-next" class="cal-next muted" data-i18n="calNoEvents"></div>
           </div>
-          <ul class="cal-events">
+          <div id="cal-status" class="cal-status muted" hidden></div>
+          <ul id="cal-events" class="cal-events">
             <li class="muted" data-i18n="calNoEvents"></li>
           </ul>
           <div class="cal-tomorrow">
             <span class="cal-tomorrow-label" data-i18n="calTomorrow"></span>
-            <span class="muted" data-i18n="calTomorrowNone"></span>
+            <span id="cal-tomorrow-event" class="muted" data-i18n="calTomorrowNone"></span>
           </div>
-          <div class="cal-reminders">
+          <div id="cal-reminders-wrap" class="cal-reminders-wrap">
             <span class="rem-title" data-i18n="remindersTitle"></span>
-            <span class="muted" data-i18n="remindersEmpty"></span>
+            <div id="rem-status" class="cal-status muted" hidden></div>
+            <ul id="rem-list" class="rem-list"></ul>
+            <span id="rem-empty" class="muted" data-i18n="remindersEmpty"></span>
           </div>
-          <div class="cal-note muted" data-i18n="calComingSoon"></div>
         </section>
 
         <section class="bottom-strip">
