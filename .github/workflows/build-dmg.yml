@@ -1,0 +1,85 @@
+# Build macOS DMG for NotchPilot
+#
+# NOTE: this .dmg is UNSIGNED — there is no Apple Developer account, so no
+# signing or notarization happens here. On first launch macOS Gatekeeper will
+# warn; open it with right-click > Open, or System Settings > Privacy &
+# Security > Open Anyway. Do not describe this build as signed anywhere.
+#
+# Why the icon is generated here: the repo's snapshot push only accepts
+# UTF-8 text files, so binary icon files cannot be committed that way.
+# scripts/generate_icon.py (stdlib only) draws icon.png on the runner, then
+# `tauri icon` derives every size Tauri needs, including icon.icns.
+#
+# Two triggers:
+# - push to main: build the .dmg and upload it as an Actions artifact
+#   (for testing; artifacts need a GitHub login and expire).
+# - push a tag like v0.1.0: build the .dmg and attach it to a GitHub
+#   Release, so anyone can download it from the Releases page.
+
+name: Build macOS DMG
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "src-tauri/**"
+      - "src/**"
+      - "package.json"
+      - ".github/workflows/build-dmg.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create the GitHub Release on tag pushes
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      # No package-lock.json is committed yet, so `npm ci` would fail.
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate app icon
+        run: |
+          python3 scripts/generate_icon.py
+          npx @tauri-apps/cli icon src-tauri/icons/icon.png
+
+      - name: Build .dmg (Apple Silicon)
+        run: npx @tauri-apps/cli build --target aarch64-apple-darwin --bundles dmg
+
+      - name: List built .dmg
+        run: ls -lh src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/
+
+      - name: Upload .dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NotchPilot-macos-aarch64-dmg
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: src-tauri/target/**/release/bundle/dmg/*.dmg
+          body: |
+            NotchPilot ${{ github.ref_name }} — macOS Apple Silicon .dmg
+
+            這個 .dmg 沒有簽名（沒有 Apple 開發者帳號）。第一次打開時 macOS 會擋，請用右鍵 →「打開」，或到「系統設定 → 隱私權與安全性」點「仍要打開」。
+
+            This .dmg is UNSIGNED (no Apple Developer account). On first launch macOS will block it: right-click it and choose Open, or go to System Settings > Privacy & Security and click Open Anyway.
