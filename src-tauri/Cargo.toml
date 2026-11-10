@@ -1,6 +1,6 @@
 [package]
 name = "notch-pilot"
-version = "0.1.0"
+version = "0.2.0"
 description = "Clean-room Rust + Tauri 2 MVP of a Dynamic Island-like notch panel for MacBook"
 authors = ["YiChia"]
 edition = "2021"

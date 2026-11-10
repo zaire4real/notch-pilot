@@ -2,44 +2,69 @@
 
 > **其他語言：** [簡體中文](README.zh-CN.md) · [English](README.en.md)
 
-把 MacBook 的劉海變成可展開的動態島 — 用 Rust + Tauri 2 重寫的 MVP。
+把 MacBook 的劉海變成可展開的動態島 — 用 Rust + Tauri 2 重寫。
 
-> **這是一個乾淨重寫（clean-room rewrite）的最小可行版本。**
-> 它只根據 boringNotch 的「行為描述」重做：滑鼠懸停劉海展開、音樂控制、時間／電量、檔案架。
+> **這是一個乾淨重寫（clean-room rewrite）。**
+> 它只根據 boringNotch 的「行為描述」重做功能與版面：滑鼠懸停劉海展開、音樂控制、時間／電量、檔案架，v0.2.0 起還包含專輯封面、音訊視覺化、日曆、相機鏡像、AirDrop、音量／亮度 HUD 與設定視窗。
 > 本專案**沒有複製任何 boringNotch 的 Swift 原始碼**，也與 TheBoredTeam 無關。
 > 原專案是 Swift / SwiftUI + AppKit、GPL-3.0；本專案是 Rust + Tauri 2、MIT。
+
+## v0.2.0 更新日誌
+
+v0.2.0：功能與版面皆對齊原版 boringNotch：專輯封面、播放進度、音訊視覺化、日曆與提醒事項、相機鏡像、檔案架（含 AirDrop）、音量／亮度 HUD、藍牙動態、手勢與劉海尺寸設定；語言選項移至設定視窗。
+
+新增與變更一覽：
+
+- **媒體**：專輯封面、播放進度條＋快進／快退、同步歌詞（LRCLIB，預設關閉）、音訊輸出選擇（喇叭／耳機／AirPods／藍牙）。
+- **音訊視覺化**：用 ScreenCaptureKit 取系統音訊做真實 8 頻段頻譜；若取樣不可用，改顯示標示為「動畫」的模擬頻譜（不假裝是真實音訊）。增益尚未校準，顯示強度可能與實際音量有落差。
+- **版面**：展開後順序改為音樂 → 日曆 → 底部（相機鏡像＋檔案架入口）；檔案架改為獨立畫面；收起時不再顯示時鐘（只顯示動態內容與電量）；閒置時可開啟「眼睛」動畫（預設關閉）；音量／切歌等短暫訊息改用約 70px 的 sneak-peek 顯示，約 2 秒後自動收起。
+- **日曆／提醒事項**：顯示今日行程、下一場倒數、明天的第一場、未完成提醒事項（可勾選完成）。用 AppleScript 讀 Calendar.app / Reminders.app，需要在「自動化」授權。
+- **檔案架**：檔案會存檔，重開 App 還在；點一下用預設 App 打開；可移除。AirDrop 可把檔案傳給附近裝置（成功是指分享選單有打開）。
+- **相機鏡像**：AVFoundation 擷取相機畫面（640×480、約 11fps），可在設定選圓形／圓角。
+- **HUD**：音量、亮度變化會在劉海以 sneak-peek 顯示；系統自己的音量／亮度提示不會被關掉。鍵盤背光尚未支援。
+- **手勢**：觸控板滑動開合面板、橫向滑動切歌。
+- **設定視窗**：獨立視窗，11 個分區（Notch、Appearance、Media、Calendar、Shelf、Mirror、Battery、OSD、Notifications、Shortcuts、About）；語言選項在 Notch 分區最上方；選單列圖示（點一下開設定、右鍵選單）、Cmd+, 也可開設定；設定存在 `settings.json`，動畫速度、劉海尺寸等都可調。
+- **多螢幕**：單一視窗跟隨使用中的螢幕（非每螢幕一個視窗）。
+- **其他**：藍牙裝置連線動態、番茄鐘、天氣（Open-Meteo，預設關閉、預設城市台北；天氣是 NotchPilot 自加的功能，原版沒有）。
 
 ## 語言
 
 軟體 UI 支援三種語言：**繁體中文（zh-TW，預設）、簡體中文（zh-CN）、英文（en）**。
 
 - 第一次打開時，會先看系統語言：是繁體中文就用繁體中文，是其他中文就用簡體中文，否則用英文。
-- 展開面板上方有語言切換器（繁體中文 / 简体中文 / English），點一下就即時切換全部文字，不用重開 App。
-- 你的選擇會存在 `localStorage`，下次打開還是用你選的語言。
+- 語言在**設定視窗**（按面板上的 ⚙、選單列圖示或 Cmd+, 開啟）→「Notch」分區最上方選擇（繁體中文 / 简体中文 / English），點一下就即時切換全部文字，不用重開 App。
+- 你的選擇會存在 `settings.json`（`~/Library/Application Support/com.yichia.notch-pilot/settings.json`），下次打開還是用你選的語言。
 - 所有 UI 字串都集中在 `src/i18n.js`，HTML / `main.js` 裡沒有硬編碼的中文。
 
-## 這個 MVP 能做什麼
+## 這個版本能做什麼
 
 | 功能 | 狀態 |
 |---|---|
 | 劉海 overlay：無邊框、透明、置頂、開機顯示在螢幕上方中央 | ✅ 有 |
-| 懸停展開 / 離開收起：收起約 199×36，展開約 680×200（依劉海幾何計算） | ✅ 有 |
+| 懸停展開 / 離開收起：收起為劉海寬×36，展開 680×360（可在設定調整） | ✅ 有 |
 | 讀取劉海幾何：`safeAreaInsets` + `auxiliaryTopLeftArea` / `auxiliaryTopRightArea`，無劉海時退回置中 pill | ✅ 有（macOS） |
-| 時間／日期顯示 | ✅ 有 |
-| 電量：解析 `pmset -g batt`，顯示百分比、充電中／使用電池 | ✅ 有（macOS） |
-| Now Playing：顯示曲名／歌手，播放／暫停／上一首／下一首 | ✅ 有（見下方限制） |
-| 檔案架：把檔案拖到展開面板上，會列出檔名清單 | ✅ 有（僅列檔名） |
-| 三語 UI：繁體中文／簡體中文／英文，即時切換 | ✅ 有 |
-| 真實音訊視覺化（頻譜） | ❌ MVP 沒有 |
-| AirDrop | ❌ MVP 沒有（只列出拖進來的檔名，不會真的傳送） |
-| 相機鏡像 | ❌ MVP 沒有 |
-| 日曆／提醒事項整合 | ❌ MVP 沒有 |
-| 取代系統音量／亮度 HUD（按鍵攔截） | ❌ MVP 沒有 |
-| 鎖定畫面小工具、天氣、通知 | ❌ MVP 沒有 |
+| 時間／日期顯示 | ✅ 有（展開面板內；收起時不顯示時鐘） |
+| 電量：解析 `pmset -g batt`，顯示百分比、充電中／使用電池、剩餘時間 | ✅ 有（macOS） |
+| Now Playing：專輯封面、曲名／歌手、播放進度、播放／暫停／上一首／下一首、快進／快退 | ✅ 有（見下方限制） |
+| 真實音訊視覺化（頻譜） | ✅ 有（ScreenCaptureKit 真實頻譜；取樣不可用時改顯示標示為動畫的模擬頻譜；增益未校準） |
+| 同步歌詞（LRCLIB） | ✅ 有（預設關閉） |
+| 音訊輸出選擇 | ✅ 有（喇叭／耳機／AirPods／藍牙） |
+| 日曆／提醒事項整合 | ✅ 有（AppleScript 讀 Calendar.app / Reminders.app） |
+| 相機鏡像 | ✅ 有（AVFoundation，640×480、約 11fps） |
+| 檔案架：拖入檔案會存檔、點開、移除 | ✅ 有 |
+| AirDrop | ✅ 有（分享選單開啟即視為成功） |
+| 音量／亮度 HUD（在劉海顯示） | ✅ 有（偵測＋顯示；不會關掉系統自己的提示；鍵盤背光未支援） |
+| 手勢：滑動開合、橫滑切歌 | ✅ 有 |
+| 設定視窗（11 個分區）、選單列圖示、Cmd+, | ✅ 有 |
+| 多螢幕：跟隨使用中的螢幕 | ✅ 有（單一視窗，非每螢幕一個視窗） |
+| 藍牙裝置連線動態、番茄鐘 | ✅ 有 |
+| 天氣（Open-Meteo） | ✅ 有（NotchPilot 自加功能，預設關閉、預設城市台北） |
+| 三語 UI：繁體中文／簡體中文／英文，即時切換 | ✅ 有（在設定視窗切換） |
+| 鎖定畫面小工具、通知 | ❌ 沒有（原版也還沒做） |
 
 ## Now Playing 的限制（請先看）
 
-MVP **沒有用私有的 MediaRemote framework**。
+本專案**沒有用私有的 MediaRemote framework**。
 
 做法是 AppleScript（`osascript`）：
 1. 先問 Music.app 是否正在播放；
@@ -50,6 +75,7 @@ MVP **沒有用私有的 MediaRemote framework**。
 - 只支援 Music.app 和 Spotify，其他播放器（YouTube Music、網頁播放器等）不會顯示。
 - 需要在「系統設定 → 隱私權與安全性 → 自動化」允許本 App 控制 Music / Spotify。
 - 曲名／歌手是輪詢取得的，不是即時推播。
+- 專輯封面從 AppleScript 讀取；同步歌詞從 LRCLIB 免費 API 抓（預設關閉，在設定 → Media 開啟）；音訊輸出選擇用 CoreAudio 切換裝置。
 
 ## 系統需求（在你的 MacBook M3 上）
 
@@ -63,7 +89,7 @@ MVP **沒有用私有的 MediaRemote framework**。
 - Node.js 20 以上（本機驗證時為 Node v24.22.1）
 - Tauri CLI 是用 `npm install` 裝在本專案的 devDependency，不用全域安裝。
 
-> 注意：本專案是在 Linux VM 上寫的，**沒有在 macOS 上編譯或執行過**。
+> 注意：本專案是在 Linux VM 上寫的，macOS 建置是在 GitHub Actions 的 macOS runner 上跑的；目前還沒有在真的 MacBook 上實際測試過。
 > 下面的指令是在你的 MacBook M3 上跑的，第一次 `npm run tauri dev` 會花幾分鐘編譯 Rust。
 
 ## 安裝與執行
@@ -84,7 +110,7 @@ npm run tauri build
 `npm run tauri build` 產出的東西在：
 
 ```
-src-tauri/target/release/bundle/dmg/NotchPilot_0.1.0_aarch64.dmg
+src-tauri/target/release/bundle/dmg/NotchPilot_0.2.0_aarch64.dmg
 src-tauri/target/release/bundle/macos/NotchPilot.app
 ```
 
@@ -100,12 +126,12 @@ src-tauri/target/release/bundle/macos/NotchPilot.app
 
 ## 怎麼用
 
-- **收起狀態**：螢幕上方中央一個黑色小 pill，顯示時間和電量。
-- **展開**：滑鼠移到 pill 上就會展開，移開就收起。
-- **語言**：展開後點面板上方的「繁體中文 / 简体中文 / English」，即時切換。
-- **音樂**：展開後看到曲名／歌手，按 ▶ / ⏸、⏮、⏭ 控制 Music 或 Spotify。
-- **檔案架**：把檔案拖到展開的面板上，檔名會出現在「檔案架」區。MVP 只列檔名，不會移動、複製或 AirDrop 檔案。
-- **設定**：面板下方有說明，進階的劉海高度／手勢目前 MVP 沒有設定頁。
+- **收起狀態**：螢幕上方中央一個黑色小 pill，顯示動態內容（播放中的專輯小圖／視覺化、充電狀態）和電量；不顯示時鐘（時間請看選單列或展開面板）。
+- **展開**：滑鼠移到 pill 上就會展開，移開就收起；展開後順序是音樂 → 日曆 → 底部（相機鏡像＋檔案架入口）。
+- **語言**：在設定視窗（按面板上的 ⚙、選單列圖示或 Cmd+, 開啟）→「Notch」分區最上方切換，即時生效。
+- **音樂**：展開後看到專輯封面、曲名／歌手、播放進度，按 ▶ / ⏸、⏮、⏭ 控制 Music 或 Spotify；進度條可快進／快退。
+- **檔案架**：把檔案拖到展開的面板上，檔案會存檔，重開 App 還在；點一下用預設 App 打開，右鍵或按 × 移除；用 AirDrop 按鈕可傳給附近裝置。
+- **設定**：獨立設定視窗，11 個分區，可調劉海尺寸、動畫速度、手勢、視覺化、鏡像形狀等；設定存在 `settings.json`。
 
 ## 疑難排解
 
@@ -114,7 +140,7 @@ src-tauri/target/release/bundle/macos/NotchPilot.app
 | `npm run tauri dev` 說找不到 `cargo` | 重開終端機，或 `source "$HOME/.cargo/env"`，再跑 `cargo --version` |
 | `npm run tauri dev` 說找不到 Xcode / `xcode-select` | 跑 `xcode-select --install`，裝完再試 |
 | 音樂一直顯示「目前沒有播放」 | 先在 Music 或 Spotify 真的按下播放；再到「系統設定 → 隱私權與安全性 → 自動化」允許本 App 控制該 App |
-| 視窗沒有出現在劉海位置 | 檢查是不是外接螢幕為主螢幕；MVP 只讀主螢幕（`NSScreen::main`）的劉海幾何 |
+| 視窗沒有出現在劉海位置 | 檢查是不是外接螢幕為主螢幕；本版是單一視窗跟隨使用中的螢幕 |
 | 沒有劉海的螢幕（外接螢幕） | 會退回置中 pill 模式，功能一樣，只是沒有劉海形狀 |
 | 語言切換後有文字沒變 | 那是 bug：所有字串都應該在 `src/i18n.js` 裡，請回報是哪一個字串沒翻到 |
 | `tauri dev` 編譯很久 | 第一次正常，Rust 要編 Tauri 和 objc2，之後會快很多 |
@@ -133,7 +159,10 @@ notch-pilot/
 │   ├── index.html              # 劉海面板 UI（無硬編碼文字）
 │   ├── i18n.js                 # 三語字典：zh-TW / zh-CN / en
 │   ├── styles.css              # 黑色 pill / 展開面板樣式
-│   └── main.js                 # 呼叫 Tauri commands、拖放檔案架、語言切換
+│   ├── main.js                 # 呼叫 Tauri commands、拖放檔案架、語言切換
+│   ├── settings.html           # 設定視窗 UI
+│   ├── settings.js             # 設定視窗邏輯
+│   └── settings.css            # 設定視窗樣式
 └── src-tauri/
     ├── Cargo.toml              # tauri 2、serde；objc2 只在 macOS 目標
     ├── tauri.conf.json         # 透明、無邊框、置頂、跳過 Dock
@@ -145,7 +174,16 @@ notch-pilot/
         ├── lib.rs              # Tauri builder、註冊 commands、setup 呼叫 notch
         ├── notch.rs            # 劉海幾何（objc2 / AppKit）+ 展開／收起
         ├── media.rs            # Now Playing（AppleScript → Music / Spotify）
-        └── system.rs           # 電量（pmset）、時間
+        ├── system.rs           # 電量（pmset）、時間
+        ├── settings.rs         # 設定檔（settings.json）讀寫
+        ├── audio.rs            # 音訊輸出裝置（CoreAudio）
+        ├── visualizer.rs       # 音訊視覺化（ScreenCaptureKit 頻譜）
+        ├── calendar.rs         # 日曆／提醒事項（AppleScript）
+        ├── airdrop.rs          # AirDrop（NSSharingService）
+        ├── mirror.rs           # 相機鏡像（AVFoundation）
+        ├── hud.rs              # 音量／亮度偵測
+        ├── displays.rs         # 多螢幕跟隨
+        └── bluetooth.rs        # 藍牙裝置狀態
 ```
 
 ## 技術選擇：為什麼是 Tauri 2？
@@ -156,14 +194,21 @@ notch-pilot/
 
 ## 路線圖
 
-- [ ] 真實音訊視覺化（用系統音訊取樣，不是假動畫）
-- [ ] 日曆／提醒事項：讀 EventKit（需要授權）
-- [ ] 相機鏡像：AVFoundation 預覽
-- [ ] 檔案架真的能 AirDrop / 打開檔案
-- [ ] 音量／亮度 HUD 取代（需要攔截系統按鍵，風險較高）
-- [ ] 設定頁：劉海高度、手勢、要不要顯示在所有螢幕
-- [ ] 更多語言（視需求）
+v0.2.0 已完成（見上方更新日誌）：
+
+- [x] 真實音訊視覺化（ScreenCaptureKit 頻譜；取樣不可用時為標示動畫）
+- [x] 日曆／提醒事項（AppleScript）
+- [x] 相機鏡像（AVFoundation）
+- [x] 檔案架存檔、打開檔案、AirDrop
+- [x] 音量／亮度 HUD 顯示（偵測＋劉海顯示；不攔截系統提示）
+- [x] 設定視窗：劉海尺寸、手勢、多螢幕跟隨、動畫速度
+- [x] 藍牙動態、番茄鐘、天氣（預設關閉）
+
+尚未做：
+
+- [ ] 鎖定畫面小工具、通知（原版也還沒做）
 - [ ] 正式圖示（`src-tauri/icons/`）與簽名／公證
+- [ ] 更多語言（視需求）
 
 ## 發布到 GitHub
 
@@ -184,8 +229,8 @@ npm run tauri dev
 
 **下載位置：<https://github.com/zaire4real/notch-pilot/releases>**
 
-1. 打開上面的 Releases 頁面，點最新的 release（目前是 **v0.1.0**）。
-2. 在 **Assets** 裡下載 `NotchPilot_0.1.0_aarch64.dmg`。
+1. 打開上面的 Releases 頁面，點最新的 release（目前是 **v0.2.0**）。
+2. 在 **Assets** 裡下載 `NotchPilot_0.2.0_aarch64.dmg`。
 3. 雙擊安裝，或拖到「應用程式」。
 
 > 這個 `.dmg` **沒有簽名**（沒有 Apple 開發者帳號）。第一次打開時 macOS 會擋，請用右鍵 →「打開」，或到「系統設定 → 隱私權與安全性」點「仍要打開」。

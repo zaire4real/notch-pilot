@@ -77,7 +77,7 @@ export const STRINGS = {
     settings: "設定",
     settingsNote: "按 ⚙ 開啟設定。",
     footerNote:
-      "NotchPilot 0.1.0 · Rust + Tauri 2 · 設定請按 ⚙",
+      "NotchPilot 0.2.0 · Rust + Tauri 2 · 設定請按 ⚙",
     secNotch: "瀏海",
     secAppearance: "外觀",
     secMedia: "媒體",
@@ -248,7 +248,7 @@ export const STRINGS = {
     settings: "设置",
     settingsNote: "按 ⚙ 打开设置。",
     footerNote:
-      "NotchPilot 0.1.0 · Rust + Tauri 2 · 设置请按 ⚙",
+      "NotchPilot 0.2.0 · Rust + Tauri 2 · 设置请按 ⚙",
     secNotch: "刘海",
     secAppearance: "外观",
     secMedia: "媒体",
@@ -419,7 +419,7 @@ export const STRINGS = {
     settings: "Settings",
     settingsNote: "Press ⚙ to open Settings.",
     footerNote:
-      "NotchPilot 0.1.0 · Rust + Tauri 2 · Press ⚙ for Settings",
+      "NotchPilot 0.2.0 · Rust + Tauri 2 · Press ⚙ for Settings",
     secNotch: "Notch",
     secAppearance: "Appearance",
     secMedia: "Media",

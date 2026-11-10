@@ -2,44 +2,69 @@
 
 > **Other languages:** [繁體中文](README.md) · [简体中文](README.zh-CN.md)
 
-Turn your MacBook notch into an expandable Dynamic Island — a Rust + Tauri 2 rewrite, MVP.
+Turn your MacBook notch into an expandable Dynamic Island — a Rust + Tauri 2 rewrite.
 
-> **This is a clean-room rewrite, minimal viable version.**
-> It reimplements boringNotch from a behavioural description only: hover the notch to expand, music controls, time / battery, file shelf.
+> **This is a clean-room rewrite.**
+> It reimplements boringNotch from a behavioural description only — feature and layout parity: hover the notch to expand, music controls, time / battery, file shelf, and since v0.2.0 also album art, audio visualizer, calendar, camera mirror, AirDrop, volume / brightness HUDs and a Settings window.
 > This project **contains no Swift source code from boringNotch** and is not affiliated with TheBoredTeam.
 > The original is Swift / SwiftUI + AppKit, GPL-3.0; this project is Rust + Tauri 2, MIT.
+
+## What's new in v0.2.0
+
+v0.2.0: feature and layout parity with the original boringNotch: album art, progress/seek, audio visualizer, calendar & reminders, camera mirror, file shelf with AirDrop, volume/brightness HUDs, Bluetooth live activity, gestures and notch sizing; language moved into the Settings window.
+
+New and changed in detail:
+
+- **Media**: album art, progress bar with seek, synced lyrics (LRCLIB, off by default), audio output selector (speakers / headphones / AirPods / Bluetooth).
+- **Audio visualizer**: real 8-band spectrum from system audio via ScreenCaptureKit; when sampling is unavailable it shows a simulated spectrum clearly labelled as animation (never faked as real audio). Gain is uncalibrated, so bar height may not match actual volume.
+- **Layout**: expanded panel order is now media → calendar → bottom strip (camera mirror + shelf entry); the shelf is a separate view; the collapsed pill no longer shows a clock (live activity + battery only); idle "eyes" animation is available (off by default); short messages (volume, track change) use a ~70px sneak-peek that auto-collapses after ~2s.
+- **Calendar / Reminders**: today's events, countdown to the next event, the first event tomorrow, and incomplete reminders (check them off). Reads Calendar.app / Reminders.app via AppleScript — grant Automation permission.
+- **Shelf**: files persist across restarts; click to open with the default app; remove with right-click or ×. AirDrop sends files to nearby devices (success means the share sheet opened).
+- **Camera mirror**: AVFoundation capture (640×480, ~11fps); circle / rounded shape in Settings.
+- **HUDs**: volume and brightness changes show in the notch as a sneak-peek; Apple's own volume/brightness OSD is not suppressed. Keyboard backlight is not supported yet.
+- **Gestures**: trackpad swipe to open/close the panel, horizontal swipe to change tracks.
+- **Settings window**: standalone window with 11 sections (Notch, Appearance, Media, Calendar, Shelf, Mirror, Battery, OSD, Notifications, Shortcuts, About); language is at the top of the Notch section; menu-bar icon (click to open Settings, right-click menu) and Cmd+, also open it; settings live in `settings.json`, including animation speed and notch sizing.
+- **Multi-display**: a single window follows the active display (not one window per display).
+- **Extras**: Bluetooth device live activity, Pomodoro timer, weather (Open-Meteo, off by default, default city Taipei; weather is a NotchPilot extra — the original does not have it).
 
 ## Languages
 
 The UI supports three languages: **Traditional Chinese (zh-TW, default), Simplified Chinese (zh-CN), and English (en)**.
 
 - On first launch it follows the system language: Traditional Chinese if the system is Traditional Chinese, Simplified Chinese for other Chinese locales, otherwise English.
-- The expanded panel has a language switcher at the top (繁體中文 / 简体中文 / English). Click it and all text updates instantly — no restart needed.
-- Your choice is stored in `localStorage` and reused next time.
+- Language is picked in the **Settings window** (open it with the ⚙ button in the panel, the menu-bar icon, or Cmd+,) → at the top of the "Notch" section (繁體中文 / 简体中文 / English). Click it and all text updates instantly — no restart needed.
+- Your choice is stored in `settings.json` (`~/Library/Application Support/com.yichia.notch-pilot/settings.json`) and reused next time.
 - All UI strings live in `src/i18n.js`; there is no hardcoded Chinese in the HTML or `main.js`.
 
-## What this MVP can do
+## What this version can do
 
 | Feature | Status |
 |---|---|
 | Notch overlay: borderless, transparent, always on top, centred at the top of the screen | ✅ Yes |
-| Hover to expand / leave to collapse: collapsed ~199×36, expanded ~680×200 (computed from notch geometry) | ✅ Yes |
+| Hover to expand / leave to collapse: collapsed is notch-width × 36, expanded 680×360 (adjustable in Settings) | ✅ Yes |
 | Notch geometry: `safeAreaInsets` + `auxiliaryTopLeftArea` / `auxiliaryTopRightArea`, falls back to a centred pill on notch-less screens | ✅ Yes (macOS) |
-| Time / date display | ✅ Yes |
-| Battery: parsed from `pmset -g batt`, shows percent, charging / on battery | ✅ Yes (macOS) |
-| Now Playing: track / artist, Play / Pause / Previous / Next | ✅ Yes (see limitations below) |
-| File shelf: drop files onto the expanded panel to list their names | ✅ Yes (names only) |
-| Trilingual UI: Traditional Chinese / Simplified Chinese / English, instant switching | ✅ Yes |
-| Real audio visualizer (spectrum) | ❌ Not in the MVP |
-| AirDrop | ❌ Not in the MVP (only lists dropped file names, does not send anything) |
-| Camera mirror | ❌ Not in the MVP |
-| Calendar / Reminders integration | ❌ Not in the MVP |
-| Volume / brightness HUD replacement (key interception) | ❌ Not in the MVP |
-| Lock-screen widgets, weather, notifications | ❌ Not in the MVP |
+| Time / date display | ✅ Yes (in the expanded panel; the collapsed pill shows no clock) |
+| Battery: parsed from `pmset -g batt`, shows percent, charging / on battery, time remaining | ✅ Yes (macOS) |
+| Now Playing: album art, track / artist, progress, Play / Pause / Previous / Next, seek | ✅ Yes (see limitations below) |
+| Real audio visualizer (spectrum) | ✅ Yes (ScreenCaptureKit spectrum; labelled animated fallback when sampling is unavailable; gain uncalibrated) |
+| Synced lyrics (LRCLIB) | ✅ Yes (off by default) |
+| Audio output selector | ✅ Yes (speakers / headphones / AirPods / Bluetooth) |
+| Calendar / Reminders integration | ✅ Yes (AppleScript to Calendar.app / Reminders.app) |
+| Camera mirror | ✅ Yes (AVFoundation, 640×480, ~11fps) |
+| File shelf: dropped files persist, open, remove | ✅ Yes |
+| AirDrop | ✅ Yes (success means the share sheet opened) |
+| Volume / brightness HUDs (shown in the notch) | ✅ Yes (detection + display; Apple's own OSD is not suppressed; keyboard backlight unsupported) |
+| Gestures: swipe to open/close, horizontal swipe to change tracks | ✅ Yes |
+| Settings window (11 sections), menu-bar icon, Cmd+, | ✅ Yes |
+| Multi-display: follows the active display | ✅ Yes (single window, not one window per display) |
+| Bluetooth live activity, Pomodoro timer | ✅ Yes |
+| Weather (Open-Meteo) | ✅ Yes (a NotchPilot extra, off by default, default city Taipei) |
+| Trilingual UI: Traditional Chinese / Simplified Chinese / English, instant switching | ✅ Yes (switched in the Settings window) |
+| Lock-screen widgets, notifications | ❌ No (the original has not shipped them either) |
 
 ## Now Playing limitations (read this first)
 
-The MVP does **not** use the private MediaRemote framework.
+This project does **not** use the private MediaRemote framework.
 
 It uses AppleScript (`osascript`):
 1. First it asks Music.app whether it is playing;
@@ -50,6 +75,7 @@ So:
 - Only Music.app and Spotify are supported. Other players (YouTube Music, web players, etc.) will not show up.
 - You need to allow the app to control Music / Spotify in "System Settings → Privacy & Security → Automation".
 - Track / artist are polled, not pushed in real time.
+- Album art comes from AppleScript; synced lyrics come from the free LRCLIB API (off by default, enable in Settings → Media); the audio output selector switches devices via CoreAudio.
 
 ## Requirements (on your MacBook M3)
 
@@ -63,7 +89,7 @@ So:
 - Node.js 20+ (Node v24.22.1 was available when this was written on Linux)
 - The Tauri CLI is installed as a devDependency via `npm install`; no global install needed.
 
-> Note: this project was written on a Linux VM and **has not been compiled or run on macOS**.
+> Note: this project was written on a Linux VM; macOS builds run on GitHub Actions macOS runners. It has not been tested on a real MacBook yet.
 > The commands below are meant to run on your MacBook M3; the first `npm run tauri dev` will take a few minutes to compile Rust.
 
 ## Install and run
@@ -84,7 +110,7 @@ npm run tauri build
 `npm run tauri build` produces:
 
 ```
-src-tauri/target/release/bundle/dmg/NotchPilot_0.1.0_aarch64.dmg
+src-tauri/target/release/bundle/dmg/NotchPilot_0.2.0_aarch64.dmg
 src-tauri/target/release/bundle/macos/NotchPilot.app
 ```
 
@@ -100,12 +126,12 @@ If your work computer only allows notarized apps, ask IT first instead of forcin
 
 ## How to use
 
-- **Collapsed:** a small black pill centred at the top of the screen, showing time and battery.
-- **Expand:** hover over the pill to expand it; move away to collapse it.
-- **Language:** click "繁體中文 / 简体中文 / English" at the top of the expanded panel to switch instantly.
-- **Music:** the expanded panel shows track / artist; use ▶ / ⏸, ⏮, ⏭ to control Music or Spotify.
-- **Shelf:** drag files onto the expanded panel and their names appear under "Shelf". The MVP only lists names — it does not move, copy, or AirDrop files.
-- **Settings:** the footer explains that advanced notch height / gestures have no settings page in the MVP.
+- **Collapsed:** a small black pill centred at the top of the screen, showing live activity (album thumbnail / visualizer while playing, charging state) and battery. No clock — check the menu bar or the expanded panel for the time.
+- **Expand:** hover over the pill to expand it; move away to collapse it. The expanded order is media → calendar → bottom strip (camera mirror + shelf entry).
+- **Language:** in the Settings window (⚙ button in the panel, menu-bar icon, or Cmd+,) → at the top of the "Notch" section; switches instantly.
+- **Music:** the expanded panel shows album art, track / artist and progress; use ▶ / ⏸, ⏮, ⏭ to control Music or Spotify; the progress bar seeks.
+- **Shelf:** drag files onto the expanded panel; they persist across restarts. Click to open with the default app, right-click or × to remove; the AirDrop button sends files to nearby devices.
+- **Settings:** a standalone Settings window with 11 sections — notch sizing, animation speed, gestures, visualizer, mirror shape and more; settings live in `settings.json`.
 
 ## Troubleshooting
 
@@ -114,7 +140,7 @@ If your work computer only allows notarized apps, ask IT first instead of forcin
 | `npm run tauri dev` says `cargo` is not found | Restart the terminal, or run `source "$HOME/.cargo/env"`, then check `cargo --version` |
 | `npm run tauri dev` says Xcode / `xcode-select` is missing | Run `xcode-select --install` and try again |
 | Music always shows "Nothing playing" | Actually press play in Music or Spotify first; then allow the app to control it in "System Settings → Privacy & Security → Automation" |
-| The window is not over the notch | Check whether an external display is the main display; the MVP only reads the main screen's (`NSScreen::main`) notch geometry |
+| The window is not over the notch | Check whether an external display is the main display; this version is a single window that follows the active display |
 | A notch-less screen (external display) | It falls back to a centred pill; everything works the same, just without the notch shape |
 | Some text does not change after switching language | That is a bug: every string should be in `src/i18n.js` — please report which string was missed |
 | `tauri dev` takes a long time to compile | Normal the first time — Rust has to compile Tauri and objc2; later builds are much faster |
@@ -133,7 +159,10 @@ notch-pilot/
 │   ├── index.html              # Notch panel UI (no hardcoded text)
 │   ├── i18n.js                 # Trilingual dictionary: zh-TW / zh-CN / en
 │   ├── styles.css              # Black pill / expanded panel styling
-│   └── main.js                 # Tauri commands, drag-drop shelf, language switching
+│   ├── main.js                 # Tauri commands, drag-drop shelf, language switching
+│   ├── settings.html           # Settings window UI
+│   ├── settings.js             # Settings window logic
+│   └── settings.css            # Settings window styling
 └── src-tauri/
     ├── Cargo.toml              # tauri 2, serde; objc2 only on the macOS target
     ├── tauri.conf.json         # Transparent, borderless, always on top, skip taskbar
@@ -145,7 +174,16 @@ notch-pilot/
         ├── lib.rs              # Tauri builder, registered commands, setup calls notch
         ├── notch.rs            # Notch geometry (objc2 / AppKit) + expand / collapse
         ├── media.rs            # Now Playing (AppleScript → Music / Spotify)
-        └── system.rs           # Battery (pmset), time
+        ├── system.rs           # Battery (pmset), time
+        ├── settings.rs         # Settings file (settings.json) read/write
+        ├── audio.rs            # Audio output devices (CoreAudio)
+        ├── visualizer.rs       # Audio visualizer (ScreenCaptureKit spectrum)
+        ├── calendar.rs         # Calendar / Reminders (AppleScript)
+        ├── airdrop.rs          # AirDrop (NSSharingService)
+        ├── mirror.rs           # Camera mirror (AVFoundation)
+        ├── hud.rs              # Volume / brightness detection
+        ├── displays.rs         # Multi-display following
+        └── bluetooth.rs        # Bluetooth device status
 ```
 
 ## Why Tauri 2?
@@ -156,14 +194,21 @@ notch-pilot/
 
 ## Roadmap
 
-- [ ] Real audio visualizer (sampled from system audio, not a fake animation)
-- [ ] Calendar / Reminders via EventKit (needs permission)
-- [ ] Camera mirror via AVFoundation preview
-- [ ] Shelf that can actually AirDrop / open files
-- [ ] Volume / brightness HUD replacement (needs system key interception — higher risk)
-- [ ] Settings page: notch height, gestures, show on all displays
-- [ ] More languages (as needed)
+v0.2.0 is done (see the changelog above):
+
+- [x] Real audio visualizer (ScreenCaptureKit spectrum; labelled animation when sampling is unavailable)
+- [x] Calendar / Reminders (AppleScript)
+- [x] Camera mirror (AVFoundation)
+- [x] Shelf persistence, opening files, AirDrop
+- [x] Volume / brightness HUD display (detection + notch display; does not intercept the system OSD)
+- [x] Settings window: notch sizing, gestures, multi-display following, animation speed
+- [x] Bluetooth live activity, Pomodoro timer, weather (off by default)
+
+Not done yet:
+
+- [ ] Lock-screen widgets, notifications (the original has not shipped them either)
 - [ ] Proper icon (`src-tauri/icons/`) plus signing / notarization
+- [ ] More languages (as needed)
 
 ## Publishing to GitHub
 
@@ -184,8 +229,8 @@ Just download it — no need to install Rust / Node to build:
 
 **Download from: <https://github.com/zaire4real/notch-pilot/releases>**
 
-1. Open the Releases page above and pick the latest release (currently **v0.1.0**).
-2. Under **Assets**, download `NotchPilot_0.1.0_aarch64.dmg`.
+1. Open the Releases page above and pick the latest release (currently **v0.2.0**).
+2. Under **Assets**, download `NotchPilot_0.2.0_aarch64.dmg`.
 3. Double-click it to install, or drag it to Applications.
 
 > This `.dmg` is **unsigned** (there is no Apple Developer account). On first launch macOS will block it; right-click it and choose **Open**, or go to **System Settings > Privacy & Security** and click **Open Anyway**.
