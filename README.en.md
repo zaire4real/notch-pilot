@@ -9,14 +9,24 @@ Turn your MacBook notch into an expandable Dynamic Island — a Rust + Tauri 2 r
 > This project **contains no Swift source code from boringNotch** and is not affiliated with TheBoredTeam.
 > The original is Swift / SwiftUI + AppKit, GPL-3.0; this project is Rust + Tauri 2, MIT.
 
-## What's new in v0.2.0
+## What's new in v0.2.1
+
+v0.2.1: fixes v0.2.0 failing to launch at all on a real MacBook (see below); everything else is the same as v0.2.0.
+
+- **Launch fix**: v0.2.0 was aborted by dyld at startup on the MacBook Air M3 (`Library not loaded: @rpath/libswift_Concurrency.dylib … no LC_RPATH's found`) and never showed a window. The cause was the `screencapturekit` crate used for the audio visualizer: it compiles a Swift bridge, so the binary links the Swift runtime. macOS keeps the core Swift runtime only in the dyld shared cache — the on-disk `/usr/lib/swift/` holds just a few framework Swift libs (Photos, Network, …) — so adding an RPATH could not find it either. v0.2.1 drops the `screencapturekit` dependency entirely, so the app no longer links Swift.
+- **Visualizer is animated-only**: it now shows only the simulated spectrum (8 bars) clearly labelled as animation, never presented as real audio. A real spectrum can only return later via a pure-objc2 ScreenCaptureKit implementation (no Swift).
+- Everything else — features, layout and settings — is the same as v0.2.0.
+
+> Note: v0.2.0 never launched successfully. Do not use the v0.2.0 .dmg; use v0.2.1 instead.
+
+## What's new in v0.2.0 (⚠️ this version does not launch — use v0.2.1)
 
 v0.2.0: feature and layout parity with the original boringNotch: album art, progress/seek, audio visualizer, calendar & reminders, camera mirror, file shelf with AirDrop, volume/brightness HUDs, Bluetooth live activity, gestures and notch sizing; language moved into the Settings window.
 
 New and changed in detail:
 
 - **Media**: album art, progress bar with seek, synced lyrics (LRCLIB, off by default), audio output selector (speakers / headphones / AirPods / Bluetooth).
-- **Audio visualizer**: real 8-band spectrum from system audio via ScreenCaptureKit; when sampling is unavailable it shows a simulated spectrum clearly labelled as animation (never faked as real audio). Gain is uncalibrated, so bar height may not match actual volume.
+- **Audio visualizer**: originally a real 8-band spectrum from system audio via ScreenCaptureKit — but that needed the Swift runtime and made v0.2.0 fail to launch entirely, so v0.2.1 shows only the simulated spectrum clearly labelled as animation (see the v0.2.1 changelog above).
 - **Layout**: expanded panel order is now media → calendar → bottom strip (camera mirror + shelf entry); the shelf is a separate view; the collapsed pill no longer shows a clock (live activity + battery only); idle "eyes" animation is available (off by default); short messages (volume, track change) use a ~70px sneak-peek that auto-collapses after ~2s.
 - **Calendar / Reminders**: today's events, countdown to the next event, the first event tomorrow, and incomplete reminders (check them off). Reads Calendar.app / Reminders.app via AppleScript — grant Automation permission.
 - **Shelf**: files persist across restarts; click to open with the default app; remove with right-click or ×. AirDrop sends files to nearby devices (success means the share sheet opened).
@@ -46,7 +56,7 @@ The UI supports three languages: **Traditional Chinese (zh-TW, default), Simplif
 | Time / date display | ✅ Yes (in the expanded panel; the collapsed pill shows no clock) |
 | Battery: parsed from `pmset -g batt`, shows percent, charging / on battery, time remaining | ✅ Yes (macOS) |
 | Now Playing: album art, track / artist, progress, Play / Pause / Previous / Next, seek | ✅ Yes (see limitations below) |
-| Real audio visualizer (spectrum) | ✅ Yes (ScreenCaptureKit spectrum; labelled animated fallback when sampling is unavailable; gain uncalibrated) |
+| Audio visualizer (animated spectrum) | ✅ Yes (animated bars, clearly labelled as animation; the real spectrum was removed in v0.2.1 because of the Swift runtime problem, pending a pure-objc2 implementation) |
 | Synced lyrics (LRCLIB) | ✅ Yes (off by default) |
 | Audio output selector | ✅ Yes (speakers / headphones / AirPods / Bluetooth) |
 | Calendar / Reminders integration | ✅ Yes (AppleScript to Calendar.app / Reminders.app) |
@@ -89,7 +99,7 @@ So:
 - Node.js 20+ (Node v24.22.1 was available when this was written on Linux)
 - The Tauri CLI is installed as a devDependency via `npm install`; no global install needed.
 
-> Note: this project was written on a Linux VM; macOS builds run on GitHub Actions macOS runners. It has not been tested on a real MacBook yet.
+> Note: this project was written on a Linux VM; macOS builds run on GitHub Actions macOS runners. v0.2.0 was tried on a real MacBook Air M3 but was aborted by dyld at launch (Swift runtime problem); v0.2.1 drops the Swift dependency but has not been confirmed to launch on a real MacBook yet.
 > The commands below are meant to run on your MacBook M3; the first `npm run tauri dev` will take a few minutes to compile Rust.
 
 ## Install and run
@@ -110,7 +120,7 @@ npm run tauri build
 `npm run tauri build` produces:
 
 ```
-src-tauri/target/release/bundle/dmg/NotchPilot_0.2.0_aarch64.dmg
+src-tauri/target/release/bundle/dmg/NotchPilot_0.2.1_aarch64.dmg
 src-tauri/target/release/bundle/macos/NotchPilot.app
 ```
 
@@ -177,7 +187,7 @@ notch-pilot/
         ├── system.rs           # Battery (pmset), time
         ├── settings.rs         # Settings file (settings.json) read/write
         ├── audio.rs            # Audio output devices (CoreAudio)
-        ├── visualizer.rs       # Audio visualizer (ScreenCaptureKit spectrum)
+        ├── visualizer.rs       # Audio visualizer (animated bars; real spectrum removed)
         ├── calendar.rs         # Calendar / Reminders (AppleScript)
         ├── airdrop.rs          # AirDrop (NSSharingService)
         ├── mirror.rs           # Camera mirror (AVFoundation)
@@ -194,9 +204,9 @@ notch-pilot/
 
 ## Roadmap
 
-v0.2.0 is done (see the changelog above):
+v0.2.0 / v0.2.1 is done (see the changelog above):
 
-- [x] Real audio visualizer (ScreenCaptureKit spectrum; labelled animation when sampling is unavailable)
+- [x] Audio visualizer (animated bars, labelled as animation; real spectrum removed in v0.2.1 over the Swift runtime problem, pending a pure-objc2 implementation)
 - [x] Calendar / Reminders (AppleScript)
 - [x] Camera mirror (AVFoundation)
 - [x] Shelf persistence, opening files, AirDrop
@@ -206,6 +216,7 @@ v0.2.0 is done (see the changelog above):
 
 Not done yet:
 
+- [ ] Real audio spectrum (pure-objc2 ScreenCaptureKit implementation, no Swift)
 - [ ] Lock-screen widgets, notifications (the original has not shipped them either)
 - [ ] Proper icon (`src-tauri/icons/`) plus signing / notarization
 - [ ] More languages (as needed)
@@ -229,8 +240,8 @@ Just download it — no need to install Rust / Node to build:
 
 **Download from: <https://github.com/zaire4real/notch-pilot/releases>**
 
-1. Open the Releases page above and pick the latest release (currently **v0.2.0**).
-2. Under **Assets**, download `NotchPilot_0.2.0_aarch64.dmg`.
+1. Open the Releases page above and pick the latest release (currently **v0.2.1**).
+2. Under **Assets**, download `NotchPilot_0.2.1_aarch64.dmg`.
 3. Double-click it to install, or drag it to Applications.
 
 > This `.dmg` is **unsigned** (there is no Apple Developer account). On first launch macOS will block it; right-click it and choose **Open**, or go to **System Settings > Privacy & Security** and click **Open Anyway**.

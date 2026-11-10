@@ -9,14 +9,24 @@
 > 本项目**没有复制任何 boringNotch 的 Swift 原始代码**，也与 TheBoredTeam 无关。
 > 原项目是 Swift / SwiftUI + AppKit、GPL-3.0；本项目是 Rust + Tauri 2、MIT。
 
-## v0.2.0 更新日志
+## v0.2.1 更新日志
+
+v0.2.1：修复 v0.2.0 在真的 MacBook 上完全无法启动的问题（见下方说明），其余功能与 v0.2.0 相同。
+
+- **启动修复**：v0.2.0 在 MacBook Air M3 上一启动就被 dyld 拦下（`Library not loaded: @rpath/libswift_Concurrency.dylib … no LC_RPATH's found`），连窗口都不会出现。原因是 v0.2.0 的音频可视化用的 `screencapturekit` 包会编译 Swift 桥接代码，执行文件因此链接了 Swift 运行环境；但 macOS 把核心 Swift 运行环境放在 dyld 共享缓存里，硬盘上的 `/usr/lib/swift/` 只有 Photos、Network 等少数文件，补 RPATH 也找不到，所以 v0.2.1 直接拿掉 `screencapturekit` 依赖，程序不再链接 Swift。
+- **音频可视化改为动画**：即日起只显示标示为「动画」的模拟频谱（8 条长条），不再假装是真实音频。真实频谱要等以后用纯 objc2 的 ScreenCaptureKit 实现（不经过 Swift）才能回来。
+- 其余功能、版面与设置与 v0.2.0 相同。
+
+> 注意：v0.2.0 从未成功启动过，请勿使用 v0.2.0 的 .dmg，改用 v0.2.1。
+
+## v0.2.0 更新日志（⚠️ 此版无法启动，请用 v0.2.1）
 
 v0.2.0：功能与版面皆对齐原版 boringNotch：专辑封面、播放进度、音频可视化、日历与提醒事项、相机镜像、文件架（含 AirDrop）、音量／亮度 HUD、蓝牙动态、手势与刘海尺寸设定；语言选项移至设置窗口。
 
 新增与变更一览：
 
 - **媒体**：专辑封面、播放进度条＋快进／快退、同步歌词（LRCLIB，默认关闭）、音频输出选择（喇叭／耳机／AirPods／蓝牙）。
-- **音频可视化**：用 ScreenCaptureKit 取系统音频做真实 8 频段频谱；若取样不可用，改显示标示为「动画」的模拟频谱（不假装是真实音频）。增益尚未校准，显示强度可能与实际音量有落差。
+- **音频可视化**：原本计划用 ScreenCaptureKit 取系统音频做真实 8 频段频谱，但该做法需要 Swift 运行环境，导致 v0.2.0 完全无法启动；v0.2.1 已改为只显示标示为「动画」的模拟频谱（见上方 v0.2.1 更新日志）。
 - **版面**：展开后顺序改为音乐 → 日历 → 底部（相机镜像＋文件架入口）；文件架改为独立画面；收起时不再显示时钟（只显示动态内容与电量）；闲置时可开启「眼睛」动画（默认关闭）；音量／切歌等短暂讯息改用约 70px 的 sneak-peek 显示，约 2 秒后自动收起。
 - **日历／提醒事项**：显示今日行程、下一场倒数、明天的第一场、未完成提醒事项（可勾选完成）。用 AppleScript 读 Calendar.app / Reminders.app，需要在「自动化」授权。
 - **文件架**：文件会存档，重开 App 还在；点一下用默认 App 打开；可移除。AirDrop 可把文件传给附近装置（成功是指分享选单有打开）。
@@ -46,7 +56,7 @@ v0.2.0：功能与版面皆对齐原版 boringNotch：专辑封面、播放进�
 | 时间／日期显示 | ✅ 有（展开面板内；收起时不显示时钟） |
 | 电量：解析 `pmset -g batt`，显示百分比、充电中／使用电池、剩余时间 | ✅ 有（macOS） |
 | Now Playing：专辑封面、曲名／歌手、播放进度、播放／暂停／上一首／下一首、快进／快退 | ✅ 有（见下方限制） |
-| 真实音频可视化（频谱） | ✅ 有（ScreenCaptureKit 真实频谱；取样不可用时改显示标示为动画的模拟频谱；增益未校准） |
+| 音频可视化（动画频谱） | ✅ 有（动画长条，明确标示为动画；真实频谱因 Swift 运行环境问题已在 v0.2.1 移除，待纯 objc2 实现） |
 | 同步歌词（LRCLIB） | ✅ 有（默认关闭） |
 | 音频输出选择 | ✅ 有（喇叭／耳机／AirPods／蓝牙） |
 | 日历／提醒事项整合 | ✅ 有（AppleScript 读 Calendar.app / Reminders.app） |
@@ -89,7 +99,7 @@ v0.2.0：功能与版面皆对齐原版 boringNotch：专辑封面、播放进�
 - Node.js 20 以上（本机验证时为 Node v24.22.1）
 - Tauri CLI 是用 `npm install` 装在本项目的 devDependency，不用全局安装。
 
-> 注意：本项目是在 Linux VM 上写的，macOS 构建是在 GitHub Actions 的 macOS runner 上跑的；目前还没有在真的 MacBook 上实际测试过。
+> 注意：本项目是在 Linux VM 上写的，macOS 构建是在 GitHub Actions 的 macOS runner 上跑的。v0.2.0 已在真的 MacBook Air M3 上试过，但一启动就被 dyld 拦下（Swift 运行环境问题）；v0.2.1 拿掉了 Swift 依赖，但尚未在真的 MacBook 上确认能打开。
 > 下面的指令是在你的 MacBook M3 上跑的，第一次 `npm run tauri dev` 会花几分钟编译 Rust。
 
 ## 安装与执行
@@ -110,7 +120,7 @@ npm run tauri build
 `npm run tauri build` 产出的东西在：
 
 ```
-src-tauri/target/release/bundle/dmg/NotchPilot_0.2.0_aarch64.dmg
+src-tauri/target/release/bundle/dmg/NotchPilot_0.2.1_aarch64.dmg
 src-tauri/target/release/bundle/macos/NotchPilot.app
 ```
 
@@ -177,7 +187,7 @@ notch-pilot/
         ├── system.rs           # 电量（pmset）、时间
         ├── settings.rs         # 设定档（settings.json）读写
         ├── audio.rs            # 音频输出装置（CoreAudio）
-        ├── visualizer.rs       # 音频可视化（ScreenCaptureKit 频谱）
+        ├── visualizer.rs       # 音频可视化（动画长条；真实频谱已移除）
         ├── calendar.rs         # 日历／提醒事项（AppleScript）
         ├── airdrop.rs          # AirDrop（NSSharingService）
         ├── mirror.rs           # 相机镜像（AVFoundation）
@@ -194,9 +204,9 @@ notch-pilot/
 
 ## 路线图
 
-v0.2.0 已完成（见上方更新日志）：
+v0.2.0 / v0.2.1 已完成（见上方更新日志）：
 
-- [x] 真实音频可视化（ScreenCaptureKit 频谱；取样不可用时为标示动画）
+- [x] 音频可视化（动画长条，标示为动画；真实频谱因 Swift 运行环境问题已移除，待纯 objc2 实现）
 - [x] 日历／提醒事项（AppleScript）
 - [x] 相机镜像（AVFoundation）
 - [x] 文件架存档、打开文件、AirDrop
@@ -206,6 +216,7 @@ v0.2.0 已完成（见上方更新日志）：
 
 尚未做：
 
+- [ ] 真实音频频谱（纯 objc2 ScreenCaptureKit 实现，不经过 Swift）
 - [ ] 锁定画面小工具、通知（原版也还没做）
 - [ ] 正式图标（`src-tauri/icons/`）与签名／公证
 - [ ] 更多语言（视需求）
@@ -229,8 +240,8 @@ npm run tauri dev
 
 **下载位置：<https://github.com/zaire4real/notch-pilot/releases>**
 
-1. 打开上面的 Releases 页面，点最新的 release（目前是 **v0.2.0**）。
-2. 在 **Assets** 里下载 `NotchPilot_0.2.0_aarch64.dmg`。
+1. 打开上面的 Releases 页面，点最新的 release（目前是 **v0.2.1**）。
+2. 在 **Assets** 里下载 `NotchPilot_0.2.1_aarch64.dmg`。
 3. 双击安装，或拖到「应用程序」。
 
 > 这个 `.dmg` **没有签名**（没有 Apple 开发者账号）。第一次打开时 macOS 会拦截，请用右键 →「打开」，或到「系统设置 → 隐私与安全性」点「仍要打开」。
