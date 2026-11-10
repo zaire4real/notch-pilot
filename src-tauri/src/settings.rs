@@ -154,6 +154,11 @@ pub struct ShelfSettings {
     pub airdrop: bool,
     pub open_on_drop: bool,
     pub keep_files: bool,
+    /// Persisted shelf file paths (v0.2 Phase 4a). The list lives in
+    /// settings.json next to the other shelf toggles, so it survives
+    /// an app restart. Entries whose files no longer exist are
+    /// silently pruned on load (see `load_shelf_paths`).
+    pub files: Vec<String>,
 }
 
 impl Default for ShelfSettings {
@@ -162,6 +167,7 @@ impl Default for ShelfSettings {
             airdrop: true,
             open_on_drop: true,
             keep_files: true,
+            files: Vec::new(),
         }
     }
 }
@@ -344,4 +350,135 @@ pub fn open_settings_window(app: &AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn open_settings(app: AppHandle) -> Result<(), String> {
     open_settings_window(&app)
+}
+
+// ---------------------------------------------------------------------------
+// Shelf persistence (v0.2 Phase 4a, F7 — shelf half only; AirDrop is
+// Phase 4b and lives elsewhere).
+//
+// The shelf file list is `settings.shelf.files` in settings.json, so
+// it survives an app restart with no extra file to keep in sync.
+// The Settings window round-trips the whole Settings object
+// (settings.js clones currentSettings), so it never wipes the list.
+// Pruning rule: entries whose files no longer exist are silently
+// dropped on load and the pruned list is saved back — the shelf
+// never shows a dead entry, and there is no greyed-out state to
+// explain. Opening a file uses the macOS `open` command (no new
+// plugin dependency); file icons are extension → emoji in the
+// frontend, no Finder icon extraction in v0.2.
+// ---------------------------------------------------------------------------
+
+/// One shelf entry as the frontend renders it: absolute path, file
+/// name, and size in bytes (None when the size cannot be read — the
+/// frontend then omits the size).
+#[derive(Debug, Clone, Serialize)]
+pub struct ShelfItem {
+    pub path: String,
+    pub name: String,
+    pub size: Option<u64>,
+}
+
+fn shelf_item(path: &str) -> ShelfItem {
+    let p = std::path::Path::new(path);
+    ShelfItem {
+        path: path.to_string(),
+        name: p
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.to_string()),
+        size: std::fs::metadata(p).ok().map(|m| m.len()),
+    }
+}
+
+/// Load the persisted shelf paths, silently dropping entries whose
+/// files no longer exist and saving the pruned list back when
+/// anything was dropped.
+fn load_shelf_paths(app: &AppHandle) -> Vec<String> {
+    let settings = load_settings(app);
+    let mut files = settings.shelf.files;
+    let before = files.len();
+    files.retain(|p| std::path::Path::new(p).exists());
+    if files.len() != before {
+        let mut settings = settings;
+        if settings.language.trim().is_empty() {
+            settings.language = "zh-TW".to_string();
+        }
+        settings.shelf.files = files.clone();
+        let _ = save_settings(app, &settings);
+    }
+    files
+}
+
+fn persist_shelf_paths(app: &AppHandle, files: Vec<String>) -> Vec<ShelfItem> {
+    let mut settings = load_settings(app);
+    if settings.language.trim().is_empty() {
+        settings.language = "zh-TW".to_string();
+    }
+    settings.shelf.files = files;
+    let _ = save_settings(app, &settings);
+    settings
+        .shelf
+        .files
+        .iter()
+        .map(|p| shelf_item(p))
+        .collect()
+}
+
+#[tauri::command]
+pub fn get_shelf(app: AppHandle) -> Vec<ShelfItem> {
+    load_shelf_paths(&app)
+        .iter()
+        .map(|p| shelf_item(p))
+        .collect()
+}
+
+#[tauri::command]
+pub fn add_shelf_files(app: AppHandle, paths: Vec<String>) -> Vec<ShelfItem> {
+    let mut files = load_shelf_paths(&app);
+    for path in paths {
+        let path = path.trim().to_string();
+        if path.is_empty() {
+            continue;
+        }
+        // Skip duplicates and paths that do not exist (a drag-drop
+        // of a deleted file must not leave a dead entry).
+        if files.iter().any(|f| f == &path) {
+            continue;
+        }
+        if !std::path::Path::new(&path).exists() {
+            continue;
+        }
+        files.push(path);
+    }
+    persist_shelf_paths(&app, files)
+}
+
+#[tauri::command]
+pub fn remove_shelf_file(app: AppHandle, path: String) -> Vec<ShelfItem> {
+    let mut files = load_shelf_paths(&app);
+    files.retain(|f| f != &path);
+    persist_shelf_paths(&app, files)
+}
+
+/// Open a shelf file with its default app. The file must still
+/// exist; a missing file is reported so the frontend can drop it
+/// from the list (load_shelf_paths prunes it on the next read).
+#[tauri::command]
+pub fn open_shelf_file(path: String) -> Result<(), String> {
+    if !std::path::Path::new(&path).exists() {
+        return Err(format!("file no longer exists: {path}"));
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = path;
+        Err("opening files is only supported on macOS".to_string())
+    }
 }

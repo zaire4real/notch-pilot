@@ -105,9 +105,10 @@
         </section>
       </div>
 
-      <!-- Shelf view: replaces Home while open (same window). The
-           shelf itself is still the Phase 1 name-list behaviour —
-           persistence comes in Phase 4a, AirDrop in Phase 4b. -->
+      <!-- Shelf view: replaces Home while open (same window).
+           Phase 4a: paths persist in settings.json, click opens,
+           × / right-click removes. AirDrop is Phase 4b — its button
+           is here but visibly disabled until then. -->
       <div id="view-shelf" class="panel-view" hidden>
         <div class="shelf-header">
           <span class="shelf-title" data-i18n="shelf"></span>
@@ -116,6 +117,10 @@
         <ul id="shelf-list" class="shelf-grid"></ul>
         <div class="shelf-dropzone">
           <span data-i18n="shelfHint"></span>
+          <button id="btn-airdrop" class="shelf-airdrop" type="button" disabled>
+            <span>AirDrop ⤴</span>
+            <span class="muted" data-i18n="mirrorSoon"></span>
+          </button>
         </div>
       </div>
     </div>

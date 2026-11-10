@@ -604,6 +604,38 @@ function tickPosition() {
   renderLyric();
 }
 
+// --- File shelf (v0.2 Phase 4a, F7 — shelf half) -----------------
+// Paths persist in settings.json (Rust: settings.shelf.files) and
+// survive a restart; missing files are silently pruned on load.
+// shelfFiles holds the Rust ShelfItem objects { path, name, size }.
+// Click a file = open it with its default app; the × button or a
+// right-click removes it from the shelf (and from the persisted
+// list). Icons are file-extension → emoji — no Finder icon
+// extraction in v0.2. AirDrop is Phase 4b; the dropzone button for
+// it is visibly disabled until then.
+function shelfIconFor(name) {
+  const ext = String(name).split(".").pop().toLowerCase();
+  if (["png", "jpg", "jpeg", "gif", "webp", "heic", "svg", "bmp", "tiff"].includes(ext)) return "🖼️";
+  if (["mp4", "mov", "mkv", "avi", "webm", "m4v"].includes(ext)) return "🎬";
+  if (["mp3", "wav", "flac", "aac", "m4a", "ogg"].includes(ext)) return "🎵";
+  if (["pdf"].includes(ext)) return "📕";
+  if (["doc", "docx", "pages", "rtf"].includes(ext)) return "📝";
+  if (["xls", "xlsx", "csv", "numbers"].includes(ext)) return "📊";
+  if (["ppt", "pptx", "key"].includes(ext)) return "📽️";
+  if (["zip", "rar", "7z", "tar", "gz", "dmg", "pkg"].includes(ext)) return "📦";
+  if (["js", "ts", "rs", "py", "swift", "go", "java", "c", "cpp", "h", "html", "css", "json", "md", "sh"].includes(ext)) return "💻";
+  if (["txt", "log"].includes(ext)) return "📃";
+  return "📄";
+}
+
+function formatFileSize(size) {
+  if (size == null || !Number.isFinite(size) || size < 0) return "";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  return `${(size / 1024 / 1024 / 1024).toFixed(1)} GB`;
+}
+
 function renderShelf() {
   if (shelfChipEl) {
     shelfChipEl.textContent = `${t("shelf")}: ${shelfFiles.length} ${t("shelfFiles")} ▸`;
@@ -616,13 +648,82 @@ function renderShelf() {
     shelfListEl.appendChild(li);
     return;
   }
-  for (const p of shelfFiles) {
-    const name = String(p).split("/").pop() || String(p);
+  for (const item of shelfFiles) {
+    const path = typeof item === "string" ? item : item.path;
+    const name =
+      (typeof item === "object" && item.name) ||
+      String(path).split("/").pop() ||
+      String(path);
+    const size =
+      typeof item === "object" ? formatFileSize(item.size) : "";
     const li = document.createElement("li");
-    li.textContent = `📄 ${name}`;
-    li.title = String(p);
+    li.className = "shelf-item";
+    li.title = String(path);
+    const icon = document.createElement("span");
+    icon.className = "shelf-icon";
+    icon.textContent = shelfIconFor(name);
+    const nameEl = document.createElement("span");
+    nameEl.className = "shelf-name";
+    nameEl.textContent = name;
+    li.appendChild(icon);
+    li.appendChild(nameEl);
+    if (size) {
+      const sizeEl = document.createElement("span");
+      sizeEl.className = "shelf-size muted";
+      sizeEl.textContent = size;
+      li.appendChild(sizeEl);
+    }
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "shelf-remove";
+    removeBtn.textContent = "×";
+    removeBtn.title = t("shelfRemove");
+    removeBtn.setAttribute("aria-label", `${t("shelfRemove")}: ${name}`);
+    removeBtn.addEventListener("click", (event) => {
+      // The × must not also trigger the tile's open-on-click.
+      event.stopPropagation();
+      removeShelfFile(path);
+    });
+    li.appendChild(removeBtn);
+    li.addEventListener("click", () => openShelfFile(path));
+    li.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      removeShelfFile(path);
+    });
     shelfListEl.appendChild(li);
   }
+}
+
+// Load the persisted shelf (prunes missing files on the Rust side).
+async function refreshShelf() {
+  try {
+    const items = await invoke("get_shelf");
+    if (Array.isArray(items)) shelfFiles = items;
+  } catch (e) {
+    console.warn("get_shelf failed:", e);
+  }
+  renderShelf();
+}
+
+async function openShelfFile(path) {
+  try {
+    await invoke("open_shelf_file", { path });
+  } catch (e) {
+    // Most likely the file was deleted since the list was loaded:
+    // re-fetch so the pruned list is shown.
+    console.warn("open_shelf_file failed:", e);
+    await refreshShelf();
+  }
+}
+
+async function removeShelfFile(path) {
+  try {
+    const items = await invoke("remove_shelf_file", { path });
+    if (Array.isArray(items)) shelfFiles = items;
+  } catch (e) {
+    console.warn("remove_shelf_file failed:", e);
+  }
+  renderShelf();
 }
 
 function applyLanguage(lang) {
@@ -693,6 +794,17 @@ function applySettings(settings) {
   // Calendar/reminders settings may have changed (which calendars,
   // reminders on/off): re-fetch so the section follows immediately.
   refreshCalendar();
+  // The shelf list can change from another window via set_settings
+  // (the Settings window round-trips it); re-fetch when it differs.
+  if (settings.shelf && Array.isArray(settings.shelf.files)) {
+    const saved = settings.shelf.files.map(String);
+    const current = shelfFiles.map((f) =>
+      typeof f === "string" ? f : f.path,
+    );
+    if (JSON.stringify(saved) !== JSON.stringify(current)) {
+      refreshShelf();
+    }
+  }
 }
 
 // Switch the system default output to the device with this UID.
@@ -1093,9 +1205,27 @@ npOutputEl.addEventListener("change", async () => {
 });
 
 // --- File shelf (MVP: list file names only, no AirDrop) ---
-function addShelfFiles(paths) {
+// Dropped paths go through Rust so they are persisted in
+// settings.json immediately (Phase 4a).
+async function addShelfFiles(paths) {
   if (!Array.isArray(paths) || paths.length === 0) return;
-  shelfFiles = shelfFiles.concat(paths.map(String));
+  try {
+    const items = await invoke("add_shelf_files", {
+      paths: paths.map(String),
+    });
+    if (Array.isArray(items)) shelfFiles = items;
+  } catch (e) {
+    console.warn("add_shelf_files failed:", e);
+    // Fall back to the in-memory list so the drop still shows up
+    // this session even if persistence failed.
+    const known = new Set(shelfFiles.map((f) => (typeof f === "string" ? f : f.path)));
+    for (const p of paths.map(String)) {
+      if (!known.has(p)) {
+        shelfFiles.push({ path: p, name: p.split("/").pop() || p, size: null });
+        known.add(p);
+      }
+    }
+  }
   renderShelf();
 }
 
@@ -1187,7 +1317,7 @@ async function init() {
   applyI18n();
   renderBattery();
   renderNowPlaying();
-  renderShelf();
+  await refreshShelf();
   await refreshAudioOutputs();
   // Re-apply a saved output device once at startup (best-effort:
   // the device may be unplugged). Not re-applied on expand, so a

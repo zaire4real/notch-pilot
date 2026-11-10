@@ -188,6 +188,10 @@ pub fn run() {
             settings::get_settings,
             settings::set_settings,
             settings::open_settings,
+            settings::get_shelf,
+            settings::add_shelf_files,
+            settings::remove_shelf_file,
+            settings::open_shelf_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running notch-pilot");
