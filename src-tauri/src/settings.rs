@@ -394,19 +394,19 @@ fn shelf_item(path: &str) -> ShelfItem {
 /// files no longer exist and saving the pruned list back when
 /// anything was dropped.
 fn load_shelf_paths(app: &AppHandle) -> Vec<String> {
-    let settings = load_settings(app);
-    let mut files = settings.shelf.files;
-    let before = files.len();
-    files.retain(|p| std::path::Path::new(p).exists());
-    if files.len() != before {
-        let mut settings = settings;
+    let mut settings = load_settings(app);
+    let before = settings.shelf.files.len();
+    settings
+        .shelf
+        .files
+        .retain(|p| std::path::Path::new(p).exists());
+    if settings.shelf.files.len() != before {
         if settings.language.trim().is_empty() {
             settings.language = "zh-TW".to_string();
         }
-        settings.shelf.files = files.clone();
         let _ = save_settings(app, &settings);
     }
-    files
+    settings.shelf.files
 }
 
 fn persist_shelf_paths(app: &AppHandle, files: Vec<String>) -> Vec<ShelfItem> {
