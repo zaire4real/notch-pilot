@@ -70,6 +70,16 @@ pub struct NotchSettings {
     pub animation_speed: String,
     pub show_on_all_displays: bool,
     pub follow_active_display: bool,
+    /// Trackpad gestures (F6, Phase 6): swipe down on the pill =
+    /// open, swipe up = close. Wired in main.js.
+    pub gestures: bool,
+    /// Sneak-peek HUD height in logical points (Phase 6; was a
+    /// hard-coded 70 in notch.rs). 0 or out of range falls back
+    /// to 70.
+    pub sneak_peek_height: f64,
+    /// Sneak-peek auto-collapse delay in milliseconds (Phase 6;
+    /// was a hard-coded 2000 in main.js). 0 falls back to 2000.
+    pub sneak_peek_ms: u64,
 }
 
 impl Default for NotchSettings {
@@ -84,6 +94,9 @@ impl Default for NotchSettings {
             animation_speed: "normal".to_string(),
             show_on_all_displays: false,
             follow_active_display: false,
+            gestures: true,
+            sneak_peek_height: 70.0,
+            sneak_peek_ms: 2000,
         }
     }
 }

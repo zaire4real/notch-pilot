@@ -15,6 +15,11 @@ pub struct BatteryInfo {
     pub charging: bool,
     /// "AC Power" / "Battery Power" / "Unknown".
     pub source: String,
+    /// Remaining time as pmset reports it, e.g. "0:42" — time until
+    /// full while charging, time until empty while discharging.
+    /// None when pmset reports no remaining time (e.g. fully
+    /// charged). Added in v0.2 Phase 6 (F5).
+    pub time_remaining: Option<String>,
 }
 
 #[tauri::command]
@@ -81,10 +86,27 @@ fn parse_pmset(text: &str) -> BatteryInfo {
         }
     }
 
+    // Remaining time: the token right before "remaining", e.g.
+    // "0:42" in "85%; charging; 0:42 remaining present: true".
+    // It must look like H:MM; anything else means pmset gave no
+    // usable time (fully charged, or a format change).
+    let time_remaining = text.find("remaining").and_then(|pos| {
+        let before = text[..pos].trim_end();
+        let token = before.split_whitespace().last()?;
+        let mut parts = token.split(':');
+        let _h: u32 = parts.next()?.parse().ok()?;
+        let _m: u32 = parts.next()?.parse().ok()?;
+        if parts.next().is_some() {
+            return None;
+        }
+        Some(token.to_string())
+    });
+
     BatteryInfo {
         percent,
         charging,
         source,
+        time_remaining,
     }
 }
 
@@ -99,6 +121,7 @@ mod tests {
         assert_eq!(info.percent, 85);
         assert!(info.charging);
         assert_eq!(info.source, "AC Power");
+        assert_eq!(info.time_remaining.as_deref(), Some("0:42"));
     }
 
     #[test]
@@ -108,5 +131,14 @@ mod tests {
         assert_eq!(info.percent, 63);
         assert!(!info.charging);
         assert_eq!(info.source, "Battery Power");
+        assert_eq!(info.time_remaining.as_deref(), Some("3:10"));
+    }
+
+    #[test]
+    fn no_remaining_time_is_none() {
+        let text = "Now drawing from 'AC Power'\n -InternalBattery-0 (id=1)\t100%; charged; present: true\n";
+        let info = parse_pmset(text);
+        assert_eq!(info.percent, 100);
+        assert_eq!(info.time_remaining, None);
     }
 }

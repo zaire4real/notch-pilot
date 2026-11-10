@@ -15,8 +15,10 @@ use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, Position, Size, Wi
 use crate::settings::load_settings;
 
 /// Sneak-peek window height (§5.2: ~70px transient one-line HUD).
-/// A setting candidate for Phase 6; hard-coded until then.
-pub const SNEAK_PEEK_HEIGHT: f64 = 70.0;
+/// Now a setting (`settings.notch.sneak_peek_height`, Phase 6);
+/// `set_notch_peek` below reads it live and falls back to 70 when
+/// the saved value is 0 or out of range.
+pub const SNEAK_PEEK_HEIGHT_FALLBACK: f64 = 70.0;
 
 /// Geometry returned to the frontend. All sizes are in logical points.
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -102,16 +104,25 @@ pub fn set_notch_expanded(window: Window, expanded: bool) -> Result<NotchGeometr
     Ok(geometry)
 }
 
-/// Sneak-peek resize (Phase 2): the transient one-line HUD is as wide
-/// as the expanded panel but only ~70px tall; hiding it returns to
-/// the idle pill. The frontend drives this from its peek state
-/// machine and never calls it while the panel is expanded.
+/// Sneak-peek resize (Phase 2, height made a setting in Phase 6):
+/// the transient one-line HUD is as wide as the expanded panel but
+/// only ~70px tall; hiding it returns to the idle pill. The
+/// frontend drives this from its peek state machine and never calls
+/// it while the panel is expanded.
 #[tauri::command]
 pub fn set_notch_peek(window: Window, show: bool) -> Result<NotchGeometry, String> {
     let app = window.app_handle().clone();
     let geometry = effective_geometry(&app)?;
+    let peek_height = {
+        let h = load_settings(&app).notch.sneak_peek_height;
+        if (40.0..=200.0).contains(&h) {
+            h
+        } else {
+            SNEAK_PEEK_HEIGHT_FALLBACK
+        }
+    };
     let (width, height) = if show {
-        (geometry.expanded_width, SNEAK_PEEK_HEIGHT)
+        (geometry.expanded_width, peek_height)
     } else {
         (geometry.idle_width, geometry.idle_height)
     };

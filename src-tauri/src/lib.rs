@@ -11,6 +11,7 @@
 pub mod airdrop;
 pub mod audio;
 pub mod calendar;
+pub mod hud;
 pub mod media;
 pub mod mirror;
 pub mod notch;
@@ -182,6 +183,7 @@ pub fn run() {
             calendar::get_calendar_data,
             calendar::get_reminders,
             calendar::complete_reminder,
+            hud::get_hud_state,
             visualizer::visualizer_start,
             visualizer::visualizer_stop,
             visualizer::visualizer_levels,

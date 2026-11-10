@@ -61,6 +61,8 @@ const shelfChipEl = $("shelf-chip");
 const peekEl = $("sneak-peek");
 const peekArtEl = $("peek-art");
 const peekTextEl = $("peek-text");
+const peekBarEl = $("peek-bar");
+const peekFillEl = $("peek-fill");
 
 let expanded = false;
 let expandTimer = null;
@@ -87,11 +89,19 @@ let airdropBusy = false;
 // the calendar placeholder lives on Home only).
 let currentView = "home";
 
-// Sneak-peek state machine (Phase 2): collapsed → peek → collapsed
-// (auto after ~2 s) or → expanded (user hovers). Later peek kinds
-// (volume / charging / Bluetooth) plug into showSneakPeek the same
-// way the track-change peek does below.
-const SNEAK_PEEK_MS = 2000;
+// Sneak-peek state machine (Phase 2, §5.2): collapsed → peek →
+// collapsed (auto after the `notch.sneak_peek_ms` setting, ~2 s)
+// or → expanded (user hovers). Peek kinds so far: track (Phase 2),
+// volume / brightness / charging (Phase 6). `level` (0..100) shows
+// the slider bar for volume/brightness peeks; text-only peeks
+// (track / charging) leave it hidden.
+function sneakPeekMs() {
+  const ms =
+    lastSettings && lastSettings.notch
+      ? lastSettings.notch.sneak_peek_ms
+      : 0;
+  return typeof ms === "number" && ms > 0 ? ms : 2000;
+}
 let peekTimer = null;
 let peekKind = null;
 
@@ -387,7 +397,7 @@ function showShelfView() {
 // add volume / charging / Bluetooth peeks without touching the
 // machine: showSneakPeek({ kind, art, text }). Only fires while the
 // panel is collapsed; hovering expands to the full panel instead.
-function showSneakPeek({ kind, art, text }) {
+function showSneakPeek({ kind, art, text, level }) {
   if (expanded || !peekEl || !peekTextEl) return;
   peekKind = kind || "generic";
   if (peekArtEl) {
@@ -400,13 +410,21 @@ function showSneakPeek({ kind, art, text }) {
     }
   }
   peekTextEl.textContent = text || "";
+  if (peekBarEl && peekFillEl) {
+    if (typeof level === "number" && Number.isFinite(level)) {
+      peekFillEl.style.width = `${Math.min(100, Math.max(0, level)).toFixed(0)}%`;
+      peekBarEl.hidden = false;
+    } else {
+      peekBarEl.hidden = true;
+    }
+  }
   peekEl.hidden = false;
   notchEl.classList.add("peek");
   invoke("set_notch_peek", { show: true }).catch((e) =>
     console.warn("set_notch_peek failed:", e),
   );
   if (peekTimer !== null) clearTimeout(peekTimer);
-  peekTimer = setTimeout(hideSneakPeek, SNEAK_PEEK_MS);
+  peekTimer = setTimeout(hideSneakPeek, sneakPeekMs());
 }
 
 function hideSneakPeek() {
@@ -434,6 +452,23 @@ function invoke(cmd, args) {
 
 function batteryLabel(info) {
   if (!info || info.percent < 0) return t("batteryUnknown");
+  // Charging-indicator setting (Phase 6, F5): "percent" (default,
+  // as before), "time" (remaining time only), "both". The time is
+  // pmset's remaining time — until full while charging, until empty
+  // while discharging. With no time known, fall back to percent.
+  const mode =
+    (lastSettings &&
+      lastSettings.battery &&
+      lastSettings.battery.charging_indicator) ||
+    "percent";
+  const time = info.time_remaining || "";
+  const chargingPart = info.charging ? ` · ${t("charging")}` : "";
+  if (time && mode === "time") {
+    return `🔋 ${time} ${t("timeRemaining")}${chargingPart}`;
+  }
+  if (time && mode === "both") {
+    return `🔋 ${info.percent}% · ${time} ${t("timeRemaining")}${chargingPart}`;
+  }
   return `🔋 ${info.percent}%${info.charging ? ` ${t("charging")}` : ""}`;
 }
 
@@ -1183,6 +1218,103 @@ notchEl.addEventListener("mouseleave", () => {
   expandTimer = setTimeout(() => setExpanded(false), 250);
 });
 
+// --- Trackpad gestures (v0.2 Phase 6, F6/F18) --------------------
+// wheel events with delta accumulation + momentum filtering.
+// Thresholds are deliberately conservative — they cannot be tuned
+// on Linux, so they must be verified on the real MacBook:
+//   * a swipe must accumulate 60 px of delta in one direction
+//     within 350 ms (one firm two-finger swipe; a light brush or
+//     the momentum tail after the fingers lift must not fire),
+//   * after a trigger, an 800 ms cooldown swallows the momentum
+//     tail so one swipe = one action,
+//   * a direction change resets the accumulator,
+//   * pinch-zoom (wheel with ctrlKey on macOS) is ignored,
+//   * a predominantly horizontal wheel is not a vertical swipe
+//     and vice versa (the two listeners below filter each other
+//     out by the dominant axis).
+// Direction mapping (macOS natural scrolling: delta follows the
+// content, not the fingers): fingers swipe DOWN → deltaY > 0 →
+// open; fingers swipe UP → deltaY < 0 → close. Over the media
+// row, fingers swipe LEFT → deltaX > 0 → next track; fingers
+// swipe RIGHT → deltaX < 0 → previous track. If the media
+// direction feels backwards on the real MacBook, flip the two
+// mediaCommand calls below — the mapping is in one place.
+const GESTURE_THRESHOLD_PX = 60;
+const GESTURE_WINDOW_MS = 350;
+const GESTURE_COOLDOWN_MS = 800;
+
+function makeGestureAccumulator() {
+  return { sum: 0, startedAt: 0, cooledUntil: 0 };
+}
+
+// Feed one wheel delta into an accumulator. Returns the swipe
+// direction (+1 / -1) when the threshold is crossed, 0 otherwise.
+function gestureAccumulate(acc, delta, now) {
+  if (now < acc.cooledUntil) return 0;
+  if (now - acc.startedAt > GESTURE_WINDOW_MS) {
+    acc.sum = 0;
+    acc.startedAt = now;
+  }
+  if (acc.sum !== 0 && Math.sign(delta) !== Math.sign(acc.sum)) {
+    acc.sum = 0;
+    acc.startedAt = now;
+  }
+  acc.sum += delta;
+  if (Math.abs(acc.sum) >= GESTURE_THRESHOLD_PX) {
+    const direction = Math.sign(acc.sum);
+    acc.sum = 0;
+    acc.cooledUntil = now + GESTURE_COOLDOWN_MS;
+    return direction;
+  }
+  return 0;
+}
+
+// Swipe down on the pill = open, swipe up = close (F6). Wired to
+// the `notch.gestures` toggle in Settings → Notch.
+const pillGesture = makeGestureAccumulator();
+notchEl.addEventListener(
+  "wheel",
+  (event) => {
+    if (event.ctrlKey) return;
+    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+    const gesturesOn =
+      !lastSettings ||
+      !lastSettings.notch ||
+      lastSettings.notch.gestures !== false;
+    if (!gesturesOn) return;
+    const dir = gestureAccumulate(pillGesture, event.deltaY, Date.now());
+    if (dir > 0 && !expanded) setExpanded(true);
+    else if (dir < 0 && expanded) setExpanded(false);
+  },
+  { passive: true },
+);
+
+// Horizontal swipe over the media row = prev/next track (F18).
+// Wired to the `media.media_gestures` toggle in Settings → Media
+// (already existed there since Phase 0; this phase makes it do
+// something). mediaCommand is hoisted, so this listener may sit
+// above its definition.
+const mediaGesture = makeGestureAccumulator();
+const mediaBlockEl = document.querySelector(".media-block");
+if (mediaBlockEl) {
+  mediaBlockEl.addEventListener(
+    "wheel",
+    (event) => {
+      if (event.ctrlKey) return;
+      if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) return;
+      const mediaGesturesOn =
+        !lastSettings ||
+        !lastSettings.media ||
+        lastSettings.media.media_gestures !== false;
+      if (!mediaGesturesOn) return;
+      const dir = gestureAccumulate(mediaGesture, event.deltaX, Date.now());
+      if (dir > 0) mediaCommand("media_next");
+      else if (dir < 0) mediaCommand("media_previous");
+    },
+    { passive: true },
+  );
+}
+
 // Gear button opens the Settings window (the only place the
 // language can be changed now — the panel-top switcher is gone).
 $("btn-settings").addEventListener("click", () => {
@@ -1254,6 +1386,7 @@ async function refreshTime() {
 }
 
 async function refreshBattery() {
+  const prev = lastBattery;
   try {
     lastBattery = await invoke("get_battery");
   } catch (e) {
@@ -1261,6 +1394,83 @@ async function refreshBattery() {
     console.warn("get_battery failed:", e);
   }
   renderBattery();
+  // Charging sneak-peek (F5, Phase 6): fire on plug/unplug — the
+  // pmset power source changed since the last poll — never on the
+  // first load (prev is null). Detection lags up to one 30 s poll.
+  if (
+    prev &&
+    lastBattery &&
+    lastBattery.percent >= 0 &&
+    prev.source &&
+    lastBattery.source &&
+    prev.source !== lastBattery.source
+  ) {
+    const time = lastBattery.time_remaining || "";
+    const timePart = time ? ` · ${time} ${t("timeRemaining")}` : "";
+    const text = lastBattery.charging
+      ? `🔋 ${lastBattery.percent}% · ${t("charging")}${timePart}`
+      : `🔋 ${lastBattery.percent}%${timePart}`;
+    showSneakPeek({ kind: "charging", text });
+  }
+}
+
+// --- HUD detection (v0.2 Phase 6, F9 — detection + notch display
+// only; Apple's own OSD is NOT suppressed, risk R4) -------------
+// get_hud_state is polled once a second (it must run while the
+// panel is collapsed, or the peek could never fire). A change of
+// >= 1 point in volume/brightness, or a mute toggle, fires a
+// sneak-peek — but only when the matching OSD toggle in Settings
+// is on, and never on the first poll (lastHud is null then, so
+// startup never flashes a peek). hudBusy skips a tick while the
+// previous poll is still in flight, so a slow corebrightnessdiag
+// can never stack up overlapping polls.
+let lastHud = null;
+let hudBusy = false;
+
+async function refreshHud() {
+  if (hudBusy) return;
+  hudBusy = true;
+  let hud = null;
+  try {
+    hud = await invoke("get_hud_state");
+  } catch (e) {
+    console.warn("get_hud_state failed:", e);
+  } finally {
+    hudBusy = false;
+  }
+  if (!hud) return;
+  if (lastHud) {
+    const osd = lastSettings && lastSettings.osd;
+    const volumeOn = !osd || osd.volume !== false;
+    const brightnessOn = !osd || osd.brightness !== false;
+    if (
+      volumeOn &&
+      hud.volume != null &&
+      lastHud.volume != null &&
+      (hud.volume !== lastHud.volume || hud.muted !== lastHud.muted)
+    ) {
+      showSneakPeek({
+        kind: "volume",
+        text: hud.muted
+          ? `🔇 ${t("hudMuted")}`
+          : `🔊 ${t("hudVolume")} ${hud.volume}%`,
+        level: hud.muted ? 0 : hud.volume,
+      });
+    } else if (
+      brightnessOn &&
+      hud.brightness != null &&
+      lastHud.brightness != null &&
+      Math.abs(hud.brightness - lastHud.brightness) >= 1
+    ) {
+      const pct = Math.round(hud.brightness);
+      showSneakPeek({
+        kind: "brightness",
+        text: `🔆 ${t("hudBrightness")} ${pct}%`,
+        level: pct,
+      });
+    }
+  }
+  lastHud = hud;
 }
 
 // --- Calendar + Reminders (Phase 3, F2/F3) ------------------------
@@ -1645,6 +1855,11 @@ async function init() {
   await refreshCalendar();
   await listenDragDrop();
   await listenSettingsChanged();
+  // HUD detection (Phase 6, F9): 1 s poll, runs while collapsed
+  // too — that is when the volume/brightness sneak-peeks fire.
+  // The first poll only sets the baseline (no peek on startup).
+  await refreshHud();
+  setInterval(refreshHud, 1000);
   setInterval(refreshTime, 15000);
   setInterval(refreshBattery, 30000);
   setInterval(refreshNowPlaying, 5000);

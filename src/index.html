@@ -23,10 +23,14 @@
 
     <!-- Sneak-peek: transient one-line HUD (~70px tall, auto-collapses
          after ~2s). Same width as the expanded panel. Content is set
-         by main.js; the first peek kind is "track changed". -->
+         by main.js; peek kinds: track changed (Phase 2), volume /
+         brightness / charging (Phase 6). The bar is the level meter
+         for volume/brightness peeks (a slider, per §5.2); it stays
+         hidden for text-only peeks. -->
     <div id="sneak-peek" hidden>
       <img id="peek-art" class="peek-art" alt="" hidden />
       <span id="peek-text" class="peek-text"></span>
+      <span id="peek-bar" class="peek-bar" hidden><span id="peek-fill" class="peek-fill"></span></span>
     </div>
 
     <!-- Expanded panel: shown on hover -->

@@ -70,6 +70,18 @@
           </div>
         </div>
         <div class="row">
+          <label for="notch-gestures" data-i18n="notchGestures"></label>
+          <input id="notch-gestures" type="checkbox" data-setting="notch.gestures" />
+        </div>
+        <div class="row">
+          <label for="notch-peek-height" data-i18n="notchPeekHeight"></label>
+          <input id="notch-peek-height" type="number" min="0" step="1" data-setting="notch.sneak_peek_height" data-number="float" />
+        </div>
+        <div class="row">
+          <label for="notch-peek-duration" data-i18n="notchPeekDuration"></label>
+          <input id="notch-peek-duration" type="number" min="0" step="100" data-setting="notch.sneak_peek_ms" data-number="int" />
+        </div>
+        <div class="row">
           <label for="notch-all-displays" data-i18n="showOnAllDisplays"></label>
           <input id="notch-all-displays" type="checkbox" data-setting="notch.show_on_all_displays" />
         </div>
@@ -209,6 +221,8 @@
           <label for="osd-backlight" data-i18n="osdBacklight"></label>
           <input id="osd-backlight" type="checkbox" data-setting="osd.backlight" />
         </div>
+        <p class="muted" data-i18n="osdNote"></p>
+        <p class="muted" data-i18n="osdBacklightNote"></p>
       </section>
 
       <section class="panel" data-panel="notifications">

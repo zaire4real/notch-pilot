@@ -126,6 +126,23 @@ html, body {
 .peek-text {
   overflow: hidden;
   text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+/* Level meter for volume/brightness peeks (Phase 6, §5.2 slider).
+   Hidden for text-only peeks (track / charging). */
+.peek-bar {
+  flex: 1;
+  min-width: 60px;
+  height: 6px;
+  border-radius: 3px;
+  background: #333;
+  overflow: hidden;
+}
+.peek-fill {
+  display: block;
+  height: 100%;
+  background: #fff;
+  border-radius: 3px;
 }
 
 #panel {
