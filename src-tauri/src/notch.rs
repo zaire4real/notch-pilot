@@ -10,7 +10,13 @@
 //! Linux can still parse this file; it is NOT a macOS build.
 
 use serde::Serialize;
-use tauri::{LogicalPosition, LogicalSize, Position, Size, Window};
+use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, Position, Size, Window};
+
+use crate::settings::load_settings;
+
+/// Sneak-peek window height (§5.2: ~70px transient one-line HUD).
+/// A setting candidate for Phase 6; hard-coded until then.
+pub const SNEAK_PEEK_HEIGHT: f64 = 70.0;
 
 /// Geometry returned to the frontend. All sizes are in logical points.
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -28,14 +34,15 @@ pub struct NotchGeometry {
 impl NotchGeometry {
     /// Fallback used on non-notch screens and on non-macOS.
     /// 199x36 is the idle pill measured on a notched MacBook in earlier
-    /// community reports; 680x320 is the v0.2 Phase 1 expanded panel
-    /// size (art + progress + lyrics need the extra height).
+    /// community reports; 680x360 is the v0.2 Phase 2 expanded panel
+    /// size (media + calendar placeholder + bottom strip need the
+    /// extra height over Phase 1's 320).
     pub fn fallback(screen_width: f64, screen_height: f64) -> Self {
         Self {
             idle_width: 199.0,
             idle_height: 36.0,
             expanded_width: 680.0,
-            expanded_height: 320.0,
+            expanded_height: 360.0,
             has_notch: false,
             screen_width,
             screen_height,
@@ -48,16 +55,63 @@ fn top_centre_x(geometry: &NotchGeometry, width: f64) -> f64 {
     (geometry.screen_width - width) / 2.0
 }
 
+/// Measured geometry with the user's sizing settings applied (F8
+/// basics, Phase 2). The settings already exist in settings.json
+/// (Settings → Notch, Phase 0); a value of 0 keeps the measured
+/// default. On a non-notch display the idle height comes from
+/// `non_notch_height`.
+fn effective_geometry(app: &AppHandle) -> Result<NotchGeometry, String> {
+    let settings = load_settings(app);
+    let mut geometry = inner_get_notch_geometry()?;
+    if settings.notch.expanded_width > 0.0 {
+        geometry.expanded_width = settings.notch.expanded_width;
+    }
+    if settings.notch.expanded_height > 0.0 {
+        geometry.expanded_height = settings.notch.expanded_height;
+    }
+    if settings.notch.idle_width > 0.0 {
+        geometry.idle_width = settings.notch.idle_width;
+    }
+    if !geometry.has_notch && settings.notch.non_notch_height > 0.0 {
+        geometry.idle_height = settings.notch.non_notch_height;
+    }
+    Ok(geometry)
+}
+
 #[tauri::command]
-pub fn get_notch_geometry() -> Result<NotchGeometry, String> {
-    inner_get_notch_geometry()
+pub fn get_notch_geometry(app: AppHandle) -> Result<NotchGeometry, String> {
+    effective_geometry(&app)
 }
 
 #[tauri::command]
 pub fn set_notch_expanded(window: Window, expanded: bool) -> Result<NotchGeometry, String> {
-    let geometry = inner_get_notch_geometry()?;
+    let app = window.app_handle().clone();
+    let geometry = effective_geometry(&app)?;
     let (width, height) = if expanded {
         (geometry.expanded_width, geometry.expanded_height)
+    } else {
+        (geometry.idle_width, geometry.idle_height)
+    };
+    let x = top_centre_x(&geometry, width);
+    window
+        .set_size(Size::Logical(LogicalSize { width, height }))
+        .map_err(|e| e.to_string())?;
+    window
+        .set_position(Position::Logical(LogicalPosition { x, y: 0.0 }))
+        .map_err(|e| e.to_string())?;
+    Ok(geometry)
+}
+
+/// Sneak-peek resize (Phase 2): the transient one-line HUD is as wide
+/// as the expanded panel but only ~70px tall; hiding it returns to
+/// the idle pill. The frontend drives this from its peek state
+/// machine and never calls it while the panel is expanded.
+#[tauri::command]
+pub fn set_notch_peek(window: Window, show: bool) -> Result<NotchGeometry, String> {
+    let app = window.app_handle().clone();
+    let geometry = effective_geometry(&app)?;
+    let (width, height) = if show {
+        (geometry.expanded_width, SNEAK_PEEK_HEIGHT)
     } else {
         (geometry.idle_width, geometry.idle_height)
     };
@@ -135,7 +189,7 @@ mod macos {
                 idle_width,
                 idle_height: 36.0,
                 expanded_width: 680.0,
-                expanded_height: 320.0,
+                expanded_height: 360.0,
                 has_notch: true,
                 screen_width,
                 screen_height,

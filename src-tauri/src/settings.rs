@@ -77,7 +77,7 @@ impl Default for NotchSettings {
         Self {
             idle_width: 0.0,
             expanded_width: 680.0,
-            expanded_height: 320.0,
+            expanded_height: 360.0,
             non_notch_height: 36.0,
             hover_open_ms: 120,
             hover_close_ms: 250,

@@ -19,9 +19,11 @@ const $ = (id) => document.getElementById(id);
 
 const notchEl = $("notch");
 const pillBatteryEl = $("pill-battery");
-const clockEl = $("clock");
-const dateEl = $("date");
-const batteryEl = $("battery");
+const pillArtEl = $("pill-art");
+const pillEyesEl = $("pill-eyes");
+const calWeekdayEl = $("cal-weekday");
+const calDateEl = $("cal-date");
+const calTimeEl = $("cal-time");
 const npTitleEl = $("np-title");
 const npArtistEl = $("np-artist");
 const playBtn = $("btn-play");
@@ -36,6 +38,12 @@ const shelfListEl = $("shelf-list");
 const npVizEl = $("np-viz");
 const npVizLabelEl = $("np-viz-label");
 const pillVizEl = $("pill-viz");
+const viewHomeEl = $("view-home");
+const viewShelfEl = $("view-shelf");
+const shelfChipEl = $("shelf-chip");
+const peekEl = $("sneak-peek");
+const peekArtEl = $("peek-art");
+const peekTextEl = $("peek-text");
 
 let expanded = false;
 let expandTimer = null;
@@ -47,6 +55,22 @@ let lastBattery = null;
 let lastNowPlaying = null;
 let lastSettings = null;
 let shelfFiles = [];
+
+// Home ↔ Shelf view state (Phase 2: the shelf is its own view;
+// the calendar placeholder lives on Home only).
+let currentView = "home";
+
+// Sneak-peek state machine (Phase 2): collapsed → peek → collapsed
+// (auto after ~2 s) or → expanded (user hovers). Later peek kinds
+// (volume / charging / Bluetooth) plug into showSneakPeek the same
+// way the track-change peek does below.
+const SNEAK_PEEK_MS = 2000;
+let peekTimer = null;
+let peekKind = null;
+
+// Idle "simple eyes" (F23): blink on a slow random timer, glance
+// shifts with the mouse near the notch.
+let eyesBlinkTimer = null;
 
 // Playback position tracking: the Rust poll returns the position at
 // poll time; between polls the frontend interpolates while playing
@@ -233,7 +257,7 @@ function applyVizStyle() {
   npVizEl.classList.toggle("viz-circular", style === "circular");
   npVizBars.forEach((bar, i) => {
     bar.style.transform =
-      style === "circular" ? `rotate(${i * 45}deg) translateY(-34px)` : "";
+      style === "circular" ? `rotate(${i * 45}deg) translateY(-46px)` : "";
   });
 }
 
@@ -260,6 +284,120 @@ function syncVisualizer() {
   }
 }
 
+// --- Collapsed pill state (Phase 2, §5.2) ------------------------
+// Playing → art thumb (+ viz bars, handled by renderVizBars) on the
+// left. Idle + show-eyes → the two eye capsules. Idle without eyes
+// → empty left cluster; battery stays on the right either way.
+function renderPillState() {
+  const playing =
+    lastNowPlaying && lastNowPlaying.title && lastNowPlaying.playing;
+  const showEyes =
+    lastSettings && lastSettings.appearance && lastSettings.appearance.show_eyes;
+  if (pillArtEl) {
+    const art =
+      playing && lastNowPlaying
+        ? lastNowPlaying.artwork || lastNowPlaying.artwork_url || ""
+        : "";
+    if (art) {
+      if (pillArtEl.getAttribute("src") !== art) pillArtEl.src = art;
+      pillArtEl.hidden = false;
+    } else {
+      pillArtEl.hidden = true;
+      pillArtEl.removeAttribute("src");
+    }
+  }
+  if (pillEyesEl) {
+    pillEyesEl.hidden = !(!playing && showEyes);
+  }
+  scheduleEyesBlink();
+}
+
+// Blink timer: re-arms itself on a slow random interval (2.5–6 s)
+// so the blink does not look metronomic. Only runs while the eyes
+// are actually visible.
+function scheduleEyesBlink() {
+  if (eyesBlinkTimer !== null) {
+    clearTimeout(eyesBlinkTimer);
+    eyesBlinkTimer = null;
+  }
+  if (!pillEyesEl || pillEyesEl.hidden) return;
+  eyesBlinkTimer = setTimeout(() => {
+    if (pillEyesEl && !pillEyesEl.hidden) {
+      pillEyesEl.classList.add("blink");
+      setTimeout(() => pillEyesEl.classList.remove("blink"), 180);
+    }
+    scheduleEyesBlink();
+  }, 2500 + Math.random() * 3500);
+}
+
+// Glance: the eyes shift a few px towards the cursor while the
+// mouse moves over the pill.
+notchEl.addEventListener("mousemove", (event) => {
+  if (!pillEyesEl || pillEyesEl.hidden) return;
+  const rect = notchEl.getBoundingClientRect();
+  const dx = (event.clientX - (rect.left + rect.width / 2)) / rect.width;
+  pillEyesEl.style.setProperty("--glance-x", `${(dx * 6).toFixed(1)}px`);
+});
+notchEl.addEventListener("mouseleave", () => {
+  if (pillEyesEl) pillEyesEl.style.setProperty("--glance-x", "0px");
+});
+
+// --- Home ↔ Shelf view switch (Phase 2, §5.2) ----------------------
+function showHomeView() {
+  currentView = "home";
+  if (viewHomeEl) viewHomeEl.hidden = false;
+  if (viewShelfEl) viewShelfEl.hidden = true;
+}
+
+function showShelfView() {
+  currentView = "shelf";
+  if (viewHomeEl) viewHomeEl.hidden = true;
+  if (viewShelfEl) viewShelfEl.hidden = false;
+}
+
+// --- Sneak-peek state machine (Phase 2, §5.2) ----------------------
+// One-line transient HUD. `kind` is recorded so later phases can
+// add volume / charging / Bluetooth peeks without touching the
+// machine: showSneakPeek({ kind, art, text }). Only fires while the
+// panel is collapsed; hovering expands to the full panel instead.
+function showSneakPeek({ kind, art, text }) {
+  if (expanded || !peekEl || !peekTextEl) return;
+  peekKind = kind || "generic";
+  if (peekArtEl) {
+    if (art) {
+      if (peekArtEl.getAttribute("src") !== art) peekArtEl.src = art;
+      peekArtEl.hidden = false;
+    } else {
+      peekArtEl.hidden = true;
+      peekArtEl.removeAttribute("src");
+    }
+  }
+  peekTextEl.textContent = text || "";
+  peekEl.hidden = false;
+  notchEl.classList.add("peek");
+  invoke("set_notch_peek", { show: true }).catch((e) =>
+    console.warn("set_notch_peek failed:", e),
+  );
+  if (peekTimer !== null) clearTimeout(peekTimer);
+  peekTimer = setTimeout(hideSneakPeek, SNEAK_PEEK_MS);
+}
+
+function hideSneakPeek() {
+  if (peekTimer !== null) {
+    clearTimeout(peekTimer);
+    peekTimer = null;
+  }
+  peekKind = null;
+  if (peekEl) peekEl.hidden = true;
+  notchEl.classList.remove("peek");
+  // If the user hovered into the full panel meanwhile, the window
+  // is already at expanded size — do not shrink it back to idle.
+  if (expanded) return;
+  invoke("set_notch_peek", { show: false }).catch((e) =>
+    console.warn("set_notch_peek failed:", e),
+  );
+}
+
 function invoke(cmd, args) {
   if (!tauri || !tauri.core || typeof tauri.core.invoke !== "function") {
     return Promise.reject(new Error("Tauri is not available"));
@@ -275,7 +413,6 @@ function batteryLabel(info) {
 function renderBattery() {
   const label = batteryLabel(lastBattery);
   pillBatteryEl.textContent = label;
-  if (batteryEl) batteryEl.textContent = label;
 }
 
 function formatTime(sec) {
@@ -312,6 +449,7 @@ function renderNowPlaying() {
     currentTrackKey = "";
     lyricLines = [];
     syncVisualizer();
+    renderPillState();
     return;
   }
   npTitleEl.textContent = np.title;
@@ -340,6 +478,7 @@ function renderNowPlaying() {
   }
   renderProgress();
   // Lyrics: refetch when the track changes.
+  const prevKey = currentTrackKey;
   const key = `${np.app}|${np.title}|${np.artist}|${np.album}`;
   if (key !== currentTrackKey) {
     currentTrackKey = key;
@@ -347,6 +486,16 @@ function renderNowPlaying() {
     npLyricEl.hidden = true;
     npLyricEl.textContent = "";
     fetchLyrics(np);
+    // First sneak-peek kind: track changed. Only when there was a
+    // previous track (not on first load) — showSneakPeek itself
+    // no-ops while the panel is expanded.
+    if (prevKey) {
+      showSneakPeek({
+        kind: "track",
+        art: np.artwork || np.artwork_url || "",
+        text: np.title,
+      });
+    }
     // A new track is a cheap moment to retry the real visualizer:
     // if the user granted Screen Recording since the animated
     // fallback started, the next track picks up the real spectrum.
@@ -357,6 +506,7 @@ function renderNowPlaying() {
     renderLyric();
   }
   syncVisualizer();
+  renderPillState();
 }
 
 function renderProgress() {
@@ -445,6 +595,9 @@ function tickPosition() {
 }
 
 function renderShelf() {
+  if (shelfChipEl) {
+    shelfChipEl.textContent = `${t("shelf")}: ${shelfFiles.length} ${t("shelfFiles")} ▸`;
+  }
   shelfListEl.innerHTML = "";
   if (shelfFiles.length === 0) {
     const li = document.createElement("li");
@@ -522,6 +675,8 @@ function applySettings(settings) {
     // Visualizer toggled or style changed: apply immediately.
     applyVizStyle();
     syncVisualizer();
+    // Appearance toggles (e.g. show-eyes) re-render the pill.
+    renderPillState();
   }
 }
 
@@ -586,6 +741,15 @@ async function persistAudioOutput(uid) {
 async function setExpanded(next) {
   if (next === expanded) return;
   expanded = next;
+  // A full expand cancels any sneak-peek; the resize below already
+  // moves the window to the expanded size, so no peek invoke here.
+  if (peekTimer !== null) {
+    clearTimeout(peekTimer);
+    peekTimer = null;
+  }
+  peekKind = null;
+  if (peekEl) peekEl.hidden = true;
+  notchEl.classList.remove("peek");
   notchEl.classList.toggle("expanded", expanded);
   if (expanded) {
     // Devices can change while the panel is closed (AirPods connect).
@@ -619,21 +783,46 @@ $("btn-settings").addEventListener("click", () => {
   );
 });
 
+// Shelf chip (Home bottom strip) ↔ Back button (Shelf view).
+$("shelf-chip").addEventListener("click", () => showShelfView());
+$("btn-shelf-back").addEventListener("click", () => showHomeView());
+
 async function refreshTime() {
+  // The clock now lives as a small line in the calendar header
+  // (§5.2): weekday + date + time. get_time returns "2026-11-10 11:33".
+  const locale = DATE_LOCALES[getLanguage()] || "en-US";
+  const render = (dateStr, hm) => {
+    if (calTimeEl) calTimeEl.textContent = hm || "";
+    if (!dateStr) return;
+    const d = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(d.getTime())) {
+      if (calDateEl) calDateEl.textContent = dateStr;
+      if (calWeekdayEl) calWeekdayEl.textContent = "";
+      return;
+    }
+    if (calWeekdayEl) {
+      calWeekdayEl.textContent = d.toLocaleDateString(locale, {
+        weekday: "long",
+      });
+    }
+    if (calDateEl) {
+      calDateEl.textContent = d.toLocaleDateString(locale, {
+        month: "short",
+        day: "numeric",
+      });
+    }
+  };
   try {
     const time = await invoke("get_time");
-    // get_time returns "2026-11-10 11:33"
     const [date, hm] = String(time).split(" ");
-    if (clockEl) clockEl.textContent = hm || time;
-    if (dateEl && date) dateEl.textContent = date;
+    render(date, hm);
   } catch (e) {
-    // Fallback: local JS clock, so the panel clock is never blank.
+    // Fallback: local JS clock, so the header is never blank.
     const now = new Date();
-    const hm = now.toTimeString().slice(0, 5);
-    if (clockEl) clockEl.textContent = hm;
-    if (dateEl) {
-      dateEl.textContent = now.toLocaleDateString(DATE_LOCALES[getLanguage()] || "en-US");
-    }
+    render(
+      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`,
+      now.toTimeString().slice(0, 5),
+    );
     console.warn("get_time failed, using local clock:", e);
   }
 }
@@ -731,6 +920,22 @@ async function listenDragDrop() {
   if (!tauri || !tauri.event || typeof tauri.event.listen !== "function") {
     return;
   }
+  // Dragging a file over the notch auto-switches to the Shelf view
+  // (as in the original), unless the user turned that off.
+  const openOnDrop = () =>
+    !lastSettings ||
+    !lastSettings.shelf ||
+    lastSettings.shelf.open_on_drop !== false;
+  try {
+    await tauri.event.listen("tauri://drag-enter", () => {
+      if (openOnDrop()) {
+        setExpanded(true);
+        showShelfView();
+      }
+    });
+  } catch (e) {
+    console.warn("drag-enter listen failed:", e);
+  }
   try {
     await tauri.event.listen("tauri://drag-drop", (event) => {
       // Tauri 2 drag-drop payload: { paths: string[], position: {...} }
@@ -738,6 +943,7 @@ async function listenDragDrop() {
       addShelfFiles(paths);
       // Keep the panel open while the user is dropping files.
       setExpanded(true);
+      if (openOnDrop()) showShelfView();
     });
   } catch (e) {
     console.warn("drag-drop listen failed:", e);

@@ -8,61 +8,111 @@
 </head>
 <body>
   <main id="notch" class="collapsed" aria-label="NotchPilot">
-    <!-- Collapsed pill: always visible. No clock here (original
-         parity): the menu bar already shows the time. -->
+    <!-- Collapsed pill: always visible. Left cluster = live activity
+         (art thumb + visualizer bars while playing, "simple eyes"
+         while idle if enabled); right cluster = battery. No clock
+         here — the menu bar already shows the time. -->
     <div id="pill">
-      <span id="pill-viz" class="pill-viz" hidden></span>
+      <span id="pill-left" class="pill-left">
+        <img id="pill-art" class="pill-art" alt="" hidden />
+        <span id="pill-viz" class="pill-viz" hidden></span>
+        <span id="pill-eyes" class="pill-eyes" hidden><span class="eye"></span><span class="eye"></span></span>
+      </span>
       <span id="pill-battery" class="pill-item">🔋 --%</span>
+    </div>
+
+    <!-- Sneak-peek: transient one-line HUD (~70px tall, auto-collapses
+         after ~2s). Same width as the expanded panel. Content is set
+         by main.js; the first peek kind is "track changed". -->
+    <div id="sneak-peek" hidden>
+      <img id="peek-art" class="peek-art" alt="" hidden />
+      <span id="peek-text" class="peek-text"></span>
     </div>
 
     <!-- Expanded panel: shown on hover -->
     <div id="panel">
-      <section class="row">
-        <div>
-          <div id="clock" class="big">--:--</div>
-          <div id="date" class="muted"></div>
-        </div>
-        <div id="battery" class="battery">🔋 --%</div>
-      </section>
+      <!-- Home view: media → calendar → bottom strip (§5.2). -->
+      <div id="view-home" class="panel-view">
+        <section class="media-block">
+          <div class="np-art-wrap">
+            <!-- Visualizer bars sit behind the album art (§5.2). The
+                 bar spans are built by main.js; the container is hidden
+                 when the visualizer is off or nothing is playing. -->
+            <div id="np-viz" class="np-viz" hidden></div>
+            <img id="np-art" class="np-art" alt="" hidden />
+            <span id="np-viz-label" class="np-viz-label muted" data-i18n="vizAnimated" hidden></span>
+          </div>
+          <div class="np-right">
+            <div class="np-text">
+              <div id="np-title" class="np-title"></div>
+              <div id="np-artist" class="muted"></div>
+            </div>
+            <div class="np-controls">
+              <button id="btn-prev" type="button" data-i18n-title="previous">⏮</button>
+              <button id="btn-play" type="button" data-i18n-title="playPause">▶</button>
+              <button id="btn-next" type="button" data-i18n-title="next">⏭</button>
+              <select id="np-output" class="np-output" data-i18n-title="audioOutputLabel"></select>
+              <button id="btn-settings" type="button" data-i18n-title="settings">⚙</button>
+            </div>
+          </div>
+        </section>
 
-      <section class="row now-playing">
-        <div class="np-art-wrap">
-          <!-- Visualizer bars sit behind the album art (§5.2). The
-               bar spans are built by main.js; the container is hidden
-               when the visualizer is off or nothing is playing. -->
-          <div id="np-viz" class="np-viz" hidden></div>
-          <img id="np-art" class="np-art" alt="" hidden />
-          <span id="np-viz-label" class="np-viz-label muted" data-i18n="vizAnimated" hidden></span>
-        </div>
-        <div class="np-text">
-          <div id="np-title" class="np-title"></div>
-          <div id="np-artist" class="muted"></div>
-        </div>
-        <div class="np-controls">
-          <button id="btn-prev" type="button" data-i18n-title="previous">⏮</button>
-          <button id="btn-play" type="button" data-i18n-title="playPause">▶</button>
-          <button id="btn-next" type="button" data-i18n-title="next">⏭</button>
-          <select id="np-output" class="np-output" data-i18n-title="audioOutputLabel"></select>
-          <button id="btn-settings" type="button" data-i18n-title="settings">⚙</button>
-        </div>
-      </section>
+        <section class="np-progress" id="np-progress-row" hidden>
+          <span id="np-elapsed" class="np-time">0:00</span>
+          <input id="np-seek" type="range" min="0" max="100" step="0.1" value="0" data-i18n-title="seek" />
+          <span id="np-total" class="np-time">0:00</span>
+        </section>
+        <div id="np-lyric" class="np-lyric muted" hidden></div>
 
-      <section class="np-progress" id="np-progress-row" hidden>
-        <span id="np-elapsed" class="np-time">0:00</span>
-        <input id="np-seek" type="range" min="0" max="100" step="0.1" value="0" data-i18n-title="seek" />
-        <span id="np-total" class="np-time">0:00</span>
-      </section>
-      <div id="np-lyric" class="np-lyric muted" hidden></div>
+        <!-- Calendar block: VISUAL placeholder only in Phase 2 (real
+             events/reminders come in Phase 3 — no calendar.rs yet). -->
+        <section class="calendar-block">
+          <div class="cal-header">
+            <div class="cal-date-wrap">
+              <div id="cal-weekday" class="cal-weekday"></div>
+              <div class="muted"><span id="cal-date"></span> · <span id="cal-time"></span></div>
+            </div>
+            <div id="cal-next" class="cal-next muted" data-i18n="calNoEvents"></div>
+          </div>
+          <ul class="cal-events">
+            <li class="muted" data-i18n="calNoEvents"></li>
+          </ul>
+          <div class="cal-tomorrow">
+            <span class="cal-tomorrow-label" data-i18n="calTomorrow"></span>
+            <span class="muted" data-i18n="calTomorrowNone"></span>
+          </div>
+          <div class="cal-reminders">
+            <span class="rem-title" data-i18n="remindersTitle"></span>
+            <span class="muted" data-i18n="remindersEmpty"></span>
+          </div>
+          <div class="cal-note muted" data-i18n="calComingSoon"></div>
+        </section>
 
-      <section class="shelf">
-        <div class="shelf-title"><span data-i18n="shelf"></span> <span class="muted" data-i18n="shelfHint"></span></div>
-        <ul id="shelf-list"></ul>
-      </section>
+        <section class="bottom-strip">
+          <!-- Mirror tile: placeholder in Phase 2 (live preview comes
+               in Phase 5). -->
+          <button id="mirror-tile" class="mirror-tile" type="button">
+            <span class="mirror-dot">◉</span>
+            <span data-i18n="secMirror"></span>
+            <span class="muted mirror-soon" data-i18n="mirrorSoon"></span>
+          </button>
+          <button id="shelf-chip" class="shelf-chip" type="button"></button>
+        </section>
+      </div>
 
-      <footer class="muted">
-        <span data-i18n="footerNote"></span>
-        <span class="settings-note" data-i18n="settingsNote"></span>
-      </footer>
+      <!-- Shelf view: replaces Home while open (same window). The
+           shelf itself is still the Phase 1 name-list behaviour —
+           persistence comes in Phase 4a, AirDrop in Phase 4b. -->
+      <div id="view-shelf" class="panel-view" hidden>
+        <div class="shelf-header">
+          <span class="shelf-title" data-i18n="shelf"></span>
+          <button id="btn-shelf-back" type="button" data-i18n="back">←</button>
+        </div>
+        <ul id="shelf-list" class="shelf-grid"></ul>
+        <div class="shelf-dropzone">
+          <span data-i18n="shelfHint"></span>
+        </div>
+      </div>
     </div>
   </main>
   <script type="module" src="main.js"></script>

@@ -127,7 +127,7 @@ pub fn run() {
                 let native_window = window.as_ref().window();
                 notch::apply_notch_window(&native_window);
                 // Position at the collapsed pill size first, then show.
-                if let Ok(geometry) = notch::get_notch_geometry() {
+                if let Ok(geometry) = notch::get_notch_geometry(app.app_handle().clone()) {
                     let x = (geometry.screen_width - geometry.idle_width) / 2.0;
                     let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
                         width: geometry.idle_width,
@@ -168,6 +168,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             notch::get_notch_geometry,
             notch::set_notch_expanded,
+            notch::set_notch_peek,
             media::get_now_playing,
             media::media_play_pause,
             media::media_next,
