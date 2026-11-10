@@ -33,11 +33,6 @@ objc2-core-media = "0.3"
 objc2-core-video = "0.3"
 # Serial dispatch queue the capture delegate runs on.
 dispatch2 = "0.3"
-# Real audio visualizer (v0.2 Phase 1b): ScreenCaptureKit system-audio
-# tap. Verified against the actual 11.1.2 crate source; `macos_13_0`
-# because audio capture needs macOS 13 at run time. No async feature:
-# the sync SCStream API is used.
-screencapturekit = { version = "11", features = ["macos_13_0"] }
 
 [profile.release]
 lto = true
