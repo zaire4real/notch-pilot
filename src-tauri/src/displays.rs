@@ -25,7 +25,7 @@
 //! permissions.
 
 use serde::Serialize;
-use tauri::{AppHandle, Monitor, Window};
+use tauri::{AppHandle, Manager, Monitor, Window};
 
 use crate::notch::{geometry_for_monitor, place_window_on_monitor};
 use crate::settings::load_settings;

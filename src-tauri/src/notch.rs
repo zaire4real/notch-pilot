@@ -19,7 +19,7 @@
 //! with different scale factors stays centred.
 
 use serde::Serialize;
-use tauri::{AppHandle, LogicalPosition, LogicalSize, Monitor, Position, Size, Window};
+use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, Monitor, Position, Size, Window};
 
 use crate::settings::load_settings;
 
