@@ -530,7 +530,10 @@ html, body {
   align-items: center;
   gap: 10px;
 }
-/* AirDrop button (Phase 4b): visibly disabled until then. */
+/* AirDrop button (Phase 4b): enabled when the shelf is non-empty
+   and the service is available; disabled states are set from
+   main.js (updateAirdropButton) and always carry a reason in the
+   button title / #airdrop-status — never a silent no-op. */
 .shelf-airdrop {
   display: flex;
   align-items: center;
@@ -542,6 +545,18 @@ html, body {
   background: #1c1c1c;
   color: #fff;
   font-size: 12px;
+  cursor: pointer;
+  opacity: 1;
+}
+.shelf-airdrop:hover { background: #2a2a2a; }
+.shelf-airdrop:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
+.shelf-airdrop:disabled:hover { background: #1c1c1c; }
+/* One-line AirDrop result / error under the button. */
+.airdrop-status {
+  font-size: 11px;
+  min-height: 14px;
+}
+.airdrop-status.error { color: #ff9a9a; }

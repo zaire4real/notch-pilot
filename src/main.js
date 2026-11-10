@@ -46,6 +46,8 @@ const shelfListEl = $("shelf-list");
 const npVizEl = $("np-viz");
 const npVizLabelEl = $("np-viz-label");
 const pillVizEl = $("pill-viz");
+const airdropBtnEl = $("btn-airdrop");
+const airdropStatusEl = $("airdrop-status");
 const viewHomeEl = $("view-home");
 const viewShelfEl = $("view-shelf");
 const shelfChipEl = $("shelf-chip");
@@ -65,6 +67,14 @@ let lastSettings = null;
 let lastCalendar = null;
 let lastReminders = null;
 let shelfFiles = [];
+
+// AirDrop (v0.2 Phase 4b): `airdropAvailable` is null until the
+// first `airdrop_available` check returns; false means the macOS
+// sharing service is missing/unconfigured and the button stays
+// disabled with a reason. `airdropBusy` disables the button while
+// a send is in flight.
+let airdropAvailable = null;
+let airdropBusy = false;
 
 // Home ↔ Shelf view state (Phase 2: the shelf is its own view;
 // the calendar placeholder lives on Home only).
@@ -611,8 +621,9 @@ function tickPosition() {
 // Click a file = open it with its default app; the × button or a
 // right-click removes it from the shelf (and from the persisted
 // list). Icons are file-extension → emoji — no Finder icon
-// extraction in v0.2. AirDrop is Phase 4b; the dropzone button for
-// it is visibly disabled until then.
+// extraction in v0.2. AirDrop is Phase 4b (below): the dropzone
+// button sends every file on the shelf — there is no per-file
+// selection model, because a tile click already means "open".
 function shelfIconFor(name) {
   const ext = String(name).split(".").pop().toLowerCase();
   if (["png", "jpg", "jpeg", "gif", "webp", "heic", "svg", "bmp", "tiff"].includes(ext)) return "🖼️";
@@ -640,6 +651,7 @@ function renderShelf() {
   if (shelfChipEl) {
     shelfChipEl.textContent = `${t("shelf")}: ${shelfFiles.length} ${t("shelfFiles")} ▸`;
   }
+  updateAirdropButton();
   shelfListEl.innerHTML = "";
   if (shelfFiles.length === 0) {
     const li = document.createElement("li");
@@ -726,6 +738,75 @@ async function removeShelfFile(path) {
   renderShelf();
 }
 
+// --- AirDrop (v0.2 Phase 4b, F7) ---------------------------------
+// Selection model (documented choice): the button sends ALL files
+// currently on the shelf, in shelf order. The Rust side presents
+// the macOS AirDrop picker (NSSharingService); success means the
+// picker opened, not that the file arrived — no delegate reports
+// the transfer result (see src-tauri/src/airdrop.rs). Any failure
+// is shown on the status line below the button; the shelf itself
+// keeps working either way.
+
+function setAirdropStatus(text, isError) {
+  if (!airdropStatusEl) return;
+  airdropStatusEl.textContent = text || "";
+  airdropStatusEl.classList.toggle("error", !!isError);
+}
+
+function updateAirdropButton() {
+  if (!airdropBtnEl) return;
+  // The label is the service brand name, the same in every language.
+  airdropBtnEl.textContent = `${t("airdrop")} ⤴`;
+  // Settings → Shelf → AirDrop off hides the button entirely (§6).
+  // lastSettings is null before the first load; the default is on.
+  const settingOn =
+    !lastSettings ||
+    !lastSettings.shelf ||
+    lastSettings.shelf.airdrop !== false;
+  airdropBtnEl.hidden = !settingOn;
+  if (!settingOn) {
+    setAirdropStatus("");
+    return;
+  }
+  // Disabled states always carry a reason (button title); the
+  // button is never a silent no-op.
+  let reason = "";
+  if (shelfFiles.length === 0) reason = t("airdropEmpty");
+  else if (airdropAvailable === false) reason = t("airdropUnavailable");
+  airdropBtnEl.disabled = airdropBusy || reason !== "";
+  airdropBtnEl.title = reason || t("airdropTitle");
+}
+
+async function refreshAirdropAvailability() {
+  try {
+    airdropAvailable = await invoke("airdrop_available");
+  } catch (e) {
+    // A failed check must not disable the shelf: leave the button
+    // enabled and let the send itself report the real error.
+    airdropAvailable = null;
+    console.warn("airdrop_available failed:", e);
+  }
+  updateAirdropButton();
+}
+
+async function sendShelfViaAirdrop() {
+  if (airdropBusy || shelfFiles.length === 0) return;
+  airdropBusy = true;
+  updateAirdropButton();
+  setAirdropStatus("");
+  try {
+    const paths = shelfFiles.map((f) =>
+      typeof f === "string" ? f : f.path,
+    );
+    await invoke("airdrop_shelf_files", { paths });
+    setAirdropStatus(t("airdropOpened"));
+  } catch (e) {
+    setAirdropStatus(`${t("airdropFailed")}: ${e}`, true);
+  }
+  airdropBusy = false;
+  updateAirdropButton();
+}
+
 function applyLanguage(lang) {
   setLanguage(lang);
   applyI18n();
@@ -805,6 +886,8 @@ function applySettings(settings) {
       refreshShelf();
     }
   }
+  // The AirDrop toggle (Settings → Shelf) hides/shows the button.
+  updateAirdropButton();
 }
 
 // Switch the system default output to the device with this UID.
@@ -915,6 +998,11 @@ $("btn-settings").addEventListener("click", () => {
 // Shelf chip (Home bottom strip) ↔ Back button (Shelf view).
 $("shelf-chip").addEventListener("click", () => showShelfView());
 $("btn-shelf-back").addEventListener("click", () => showHomeView());
+
+// AirDrop button (Phase 4b): sends every file on the shelf.
+if (airdropBtnEl) {
+  airdropBtnEl.addEventListener("click", () => sendShelfViaAirdrop());
+}
 
 async function refreshTime() {
   // The clock now lives as a small line in the calendar header
@@ -1318,6 +1406,7 @@ async function init() {
   renderBattery();
   renderNowPlaying();
   await refreshShelf();
+  await refreshAirdropAvailability();
   await refreshAudioOutputs();
   // Re-apply a saved output device once at startup (best-effort:
   // the device may be unplugged). Not re-applied on expand, so a

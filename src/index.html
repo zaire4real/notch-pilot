@@ -107,8 +107,9 @@
 
       <!-- Shelf view: replaces Home while open (same window).
            Phase 4a: paths persist in settings.json, click opens,
-           × / right-click removes. AirDrop is Phase 4b — its button
-           is here but visibly disabled until then. -->
+           × / right-click removes. Phase 4b: the AirDrop button is
+           live — it sends every file on the shelf (see main.js);
+           #airdrop-status shows the result or the error. -->
       <div id="view-shelf" class="panel-view" hidden>
         <div class="shelf-header">
           <span class="shelf-title" data-i18n="shelf"></span>
@@ -117,10 +118,8 @@
         <ul id="shelf-list" class="shelf-grid"></ul>
         <div class="shelf-dropzone">
           <span data-i18n="shelfHint"></span>
-          <button id="btn-airdrop" class="shelf-airdrop" type="button" disabled>
-            <span>AirDrop ⤴</span>
-            <span class="muted" data-i18n="mirrorSoon"></span>
-          </button>
+          <button id="btn-airdrop" class="shelf-airdrop" type="button"></button>
+          <div id="airdrop-status" class="airdrop-status muted" role="status"></div>
         </div>
       </div>
     </div>

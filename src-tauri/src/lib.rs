@@ -8,6 +8,7 @@
 //! v0.2 Phase 0 adds: a Settings window (`settings` module), a menu-bar
 //! tray icon (F22) and a Cmd+, global shortcut that opens Settings.
 
+pub mod airdrop;
 pub mod audio;
 pub mod calendar;
 pub mod media;
@@ -192,6 +193,8 @@ pub fn run() {
             settings::add_shelf_files,
             settings::remove_shelf_file,
             settings::open_shelf_file,
+            airdrop::airdrop_available,
+            airdrop::airdrop_shelf_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running notch-pilot");
