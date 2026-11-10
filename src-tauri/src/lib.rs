@@ -18,10 +18,11 @@ pub fn run() {
             // position it from the real notch geometry before showing it.
             // Tauri 2 removed get_window; get_webview_window returns a
             // WebviewWindow. Its AsRef<Webview> gives the Webview, whose
-            // .window() is the underlying tauri::Window that
-            // notch::apply_notch_window takes.
+            // .window() returns an OWNED Window (cloned, not &Window) —
+            // so bind it first and pass a reference to the binding.
             if let Some(window) = app.get_webview_window("main") {
-                notch::apply_notch_window(window.as_ref().window());
+                let native_window = window.as_ref().window();
+                notch::apply_notch_window(&native_window);
                 // Position at the collapsed pill size first, then show.
                 if let Ok(geometry) = notch::get_notch_geometry() {
                     let x = (geometry.screen_width - geometry.idle_width) / 2.0;
