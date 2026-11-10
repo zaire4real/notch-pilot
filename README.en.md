@@ -167,19 +167,13 @@ notch-pilot/
 
 ## Publishing to GitHub
 
-> Not pushed yet. Push it once you give me your GitHub account / repo name — the commands are ready below.
+This project is live in the public repo <https://github.com/zaire4real/notch-pilot>.
 
 ```bash
-cd ~/workspace/notch-pilot
-
-git init
-git add .
-git commit -m "Initial commit: NotchPilot MVP (Rust + Tauri 2, i18n zh-TW/zh-CN/en)"
-
-# Replace <your-account> with your actual GitHub account
-git remote add origin https://github.com/<your-account>/notch-pilot.git
-git branch -M main
-git push -u origin main
+git clone https://github.com/zaire4real/notch-pilot.git
+cd notch-pilot
+npm install
+npm run tauri dev
 ```
 
 Before publishing, check: `.gitignore` excludes `target/`, `node_modules/`, and `.DS_Store`; `LICENSE` and all three READMEs (`README.md`, `README.zh-CN.md`, `README.en.md`) are in the root; do not push the built `.app` / `.dmg` (they live in `src-tauri/target/` and are ignored).

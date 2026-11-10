@@ -167,19 +167,13 @@ notch-pilot/
 
 ## 發布到 GitHub
 
-> 還沒有真的 push。等你給我 GitHub 帳號 / repo 名稱再推，現在先把指令準備好。
+本專案已上線，公開 repo 在 <https://github.com/zaire4real/notch-pilot>。
 
 ```bash
-cd ~/workspace/notch-pilot
-
-git init
-git add .
-git commit -m "Initial commit: NotchPilot MVP (Rust + Tauri 2, i18n zh-TW/zh-CN/en)"
-
-# 把 <你的帳號> 換成你的實際 GitHub 帳號
-git remote add origin https://github.com/<你的帳號>/notch-pilot.git
-git branch -M main
-git push -u origin main
+git clone https://github.com/zaire4real/notch-pilot.git
+cd notch-pilot
+npm install
+npm run tauri dev
 ```
 
 發布前請確認：`.gitignore` 已排除 `target/`、`node_modules/`、`.DS_Store`；`LICENSE`、三份 README（`README.md`、`README.zh-CN.md`、`README.en.md`）都在根目錄；不要把編譯出來的 `.app` / `.dmg` 推上去（它們在 `src-tauri/target/`，已被忽略）。
