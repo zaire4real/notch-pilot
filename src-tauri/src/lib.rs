@@ -16,7 +16,10 @@ pub fn run() {
         .setup(|app| {
             // The main window starts invisible in tauri.conf.json so we can
             // position it from the real notch geometry before showing it.
-            if let Some(window) = app.get_webview_window("main") {
+            // get_window returns a tauri::Window, which is what
+            // notch::apply_notch_window takes. (get_webview_window would
+            // return a WebviewWindow, a different type in Tauri 2.)
+            if let Some(window) = app.get_window("main") {
                 notch::apply_notch_window(&window);
                 // Position at the collapsed pill size first, then show.
                 if let Ok(geometry) = notch::get_notch_geometry() {

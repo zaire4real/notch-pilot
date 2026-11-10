@@ -10,7 +10,7 @@
 //! Linux can still parse this file; it is NOT a macOS build.
 
 use serde::Serialize;
-use tauri::{LogicalPosition, LogicalSize, Manager, Position, Size, Window};
+use tauri::{LogicalPosition, LogicalSize, Position, Size, Window};
 
 /// Geometry returned to the frontend. All sizes are in logical points.
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -100,7 +100,7 @@ fn inner_get_notch_geometry() -> Result<NotchGeometry, String> {
 mod macos {
     use super::NotchGeometry;
     use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior, NSWindowLevel};
+    use objc2_app_kit::{NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior};
     use objc2_foundation::NSRect;
     use tauri::Window;
 
@@ -146,8 +146,11 @@ mod macos {
 
     pub fn apply_notch_window_native(window: &Window) {
         // Tauri exposes the underlying NSWindow as a raw pointer on macOS.
-        // Level 25 is above the normal window level and is what notch
-        // overlays use so the panel stays visible over full-screen apps.
+        // NSStatusWindowLevel is 25: above the normal window level, which
+        // is what notch overlays use so the panel stays visible over
+        // full-screen apps. (NSWindowLevel is only a type alias for
+        // NSInteger in objc2-app-kit, so it cannot be constructed as
+        // NSWindowLevel(25); use the named level constant instead.)
         // If the pointer is unavailable we simply keep Tauri's
         // alwaysOnTop setting and do not fail the app start.
         let Ok(raw) = window.ns_window() else {
@@ -158,7 +161,7 @@ mod macos {
         }
         unsafe {
             let ns_window: &NSWindow = &*(raw as *const NSWindow);
-            ns_window.setLevel(NSWindowLevel(25));
+            ns_window.setLevel(NSStatusWindowLevel);
             let behaviour = NSWindowCollectionBehavior::CanJoinAllSpaces
                 | NSWindowCollectionBehavior::Stationary
                 | NSWindowCollectionBehavior::FullScreenAuxiliary;
