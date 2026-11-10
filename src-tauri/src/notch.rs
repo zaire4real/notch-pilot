@@ -28,13 +28,14 @@ pub struct NotchGeometry {
 impl NotchGeometry {
     /// Fallback used on non-notch screens and on non-macOS.
     /// 199x36 is the idle pill measured on a notched MacBook in earlier
-    /// community reports; 680x200 is the MVP expanded panel size.
+    /// community reports; 680x320 is the v0.2 Phase 1 expanded panel
+    /// size (art + progress + lyrics need the extra height).
     pub fn fallback(screen_width: f64, screen_height: f64) -> Self {
         Self {
             idle_width: 199.0,
             idle_height: 36.0,
             expanded_width: 680.0,
-            expanded_height: 200.0,
+            expanded_height: 320.0,
             has_notch: false,
             screen_width,
             screen_height,
@@ -134,7 +135,7 @@ mod macos {
                 idle_width,
                 idle_height: 36.0,
                 expanded_width: 680.0,
-                expanded_height: 200.0,
+                expanded_height: 320.0,
                 has_notch: true,
                 screen_width,
                 screen_height,

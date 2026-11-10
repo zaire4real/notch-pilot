@@ -8,6 +8,7 @@
 //! v0.2 Phase 0 adds: a Settings window (`settings` module), a menu-bar
 //! tray icon (F22) and a Cmd+, global shortcut that opens Settings.
 
+pub mod audio;
 pub mod media;
 pub mod notch;
 pub mod settings;
@@ -170,6 +171,9 @@ pub fn run() {
             media::media_play_pause,
             media::media_next,
             media::media_previous,
+            media::media_seek,
+            audio::get_audio_outputs,
+            audio::set_audio_output,
             system::get_battery,
             system::get_time,
             settings::get_settings,

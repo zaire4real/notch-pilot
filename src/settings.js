@@ -212,6 +212,28 @@ async function listenSettingsChanged() {
   }
 }
 
+// Audio output selector: one option per real CoreAudio output
+// device (value = device UID, which is what settings store). The
+// "System default" option is already in the HTML. Populated before
+// populateForm so the saved value can select the right option.
+async function populateAudioOutputs() {
+  const select = $("media-audio-output");
+  if (!select) return;
+  let devices = [];
+  try {
+    devices = await invoke("get_audio_outputs");
+  } catch (e) {
+    console.warn("get_audio_outputs failed:", e);
+  }
+  select.querySelectorAll("option:not([value='system'])").forEach((o) => o.remove());
+  for (const dev of devices) {
+    const opt = document.createElement("option");
+    opt.value = dev.uid;
+    opt.textContent = dev.name;
+    select.appendChild(opt);
+  }
+}
+
 async function init() {
   let settings = null;
   try {
@@ -228,7 +250,20 @@ async function init() {
     initLanguage();
     applyI18n();
   }
+  await populateAudioOutputs();
   populateForm(currentSettings);
+  // If the saved output device is unplugged, its UID matches no
+  // option and the select would render blank — show System instead.
+  // (The saved value is left alone; the device may come back.)
+  const outSel = $("media-audio-output");
+  if (
+    outSel &&
+    currentSettings.media &&
+    currentSettings.media.audio_output &&
+    outSel.value !== currentSettings.media.audio_output
+  ) {
+    outSel.value = "system";
+  }
   wireControls();
   await listenSettingsChanged();
 }

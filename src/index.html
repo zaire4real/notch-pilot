@@ -25,6 +25,7 @@
       </section>
 
       <section class="row now-playing">
+        <img id="np-art" class="np-art" alt="" hidden />
         <div class="np-text">
           <div id="np-title" class="np-title"></div>
           <div id="np-artist" class="muted"></div>
@@ -33,9 +34,17 @@
           <button id="btn-prev" type="button" data-i18n-title="previous">⏮</button>
           <button id="btn-play" type="button" data-i18n-title="playPause">▶</button>
           <button id="btn-next" type="button" data-i18n-title="next">⏭</button>
+          <select id="np-output" class="np-output" data-i18n-title="audioOutputLabel"></select>
           <button id="btn-settings" type="button" data-i18n-title="settings">⚙</button>
         </div>
       </section>
+
+      <section class="np-progress" id="np-progress-row" hidden>
+        <span id="np-elapsed" class="np-time">0:00</span>
+        <input id="np-seek" type="range" min="0" max="100" step="0.1" value="0" data-i18n-title="seek" />
+        <span id="np-total" class="np-time">0:00</span>
+      </section>
+      <div id="np-lyric" class="np-lyric muted" hidden></div>
 
       <section class="shelf">
         <div class="shelf-title"><span data-i18n="shelf"></span> <span class="muted" data-i18n="shelfHint"></span></div>

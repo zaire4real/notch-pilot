@@ -9,6 +9,10 @@
 
 * { box-sizing: border-box; }
 
+/* `hidden` must win over the display rules below (e.g. .np-progress
+   sets display:flex, which would otherwise override the attribute). */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -100,6 +104,64 @@ html, body {
 }
 .np-controls button:hover { background: #2a2a2a; }
 .np-controls button:active { transform: scale(0.95); }
+
+/* Album art thumb at the left of the media row (Phase 1 only adds
+   the art; the full art-left / text-right layout reorder is Phase 2). */
+.np-art {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #222;
+}
+
+/* Audio output selector in the media row. */
+.np-output {
+  max-width: 118px;
+  height: 36px;
+  padding: 0 6px;
+  border: 1px solid #333;
+  border-radius: 18px;
+  background: #1c1c1c;
+  color: #fff;
+  font-size: 12px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.np-output:hover { background: #2a2a2a; }
+
+/* Progress bar + elapsed/total under the media row. */
+.np-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -4px;
+}
+.np-progress input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: #fff;
+  height: 4px;
+  cursor: pointer;
+}
+.np-time {
+  font-size: 11px;
+  min-width: 34px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Current synced lyric line (hidden when lyrics are off or none
+   were found for the track). */
+.np-lyric {
+  font-size: 13px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: -4px;
+}
 
 .shelf-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 #shelf-list {
