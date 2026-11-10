@@ -13,6 +13,7 @@ pub mod media;
 pub mod notch;
 pub mod settings;
 pub mod system;
+pub mod visualizer;
 
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem};
@@ -174,6 +175,9 @@ pub fn run() {
             media::media_seek,
             audio::get_audio_outputs,
             audio::set_audio_output,
+            visualizer::visualizer_start,
+            visualizer::visualizer_stop,
+            visualizer::visualizer_levels,
             system::get_battery,
             system::get_time,
             settings::get_settings,

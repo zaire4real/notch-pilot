@@ -25,6 +25,11 @@ serde_json = "1"
 objc2 = "0.6"
 objc2-app-kit = "0.3"
 objc2-foundation = "0.3"
+# Real audio visualizer (v0.2 Phase 1b): ScreenCaptureKit system-audio
+# tap. Verified against the actual 11.1.2 crate source; `macos_13_0`
+# because audio capture needs macOS 13 at run time. No async feature:
+# the sync SCStream API is used.
+screencapturekit = { version = "11", features = ["macos_13_0"] }
 
 [profile.release]
 lto = true

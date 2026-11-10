@@ -80,6 +80,9 @@ export const STRINGS = {
     visualizerBars: "長條",
     visualizerCircular: "圓形",
     visualizerWave: "波形",
+    vizAnimated: "動畫視覺化",
+    vizNote:
+      "即時頻譜使用 ScreenCaptureKit 抓取系統音訊，首次播放時會要求「螢幕錄製」權限；若未授權，會改以動畫呈現（非即時音訊）。",
     lyrics: "同步歌詞",
     audioOutput: "音訊輸出",
     audioOutputSystem: "系統預設",
@@ -174,6 +177,9 @@ export const STRINGS = {
     visualizerBars: "长条",
     visualizerCircular: "圆形",
     visualizerWave: "波形",
+    vizAnimated: "动画可视化",
+    vizNote:
+      "实时频谱使用 ScreenCaptureKit 抓取系统音频，首次播放时会要求「屏幕录制」权限；若未授权，会改以动画呈现（非实时音频）。",
     lyrics: "同步歌词",
     audioOutput: "音频输出",
     audioOutputSystem: "系统默认",
@@ -268,6 +274,9 @@ export const STRINGS = {
     visualizerBars: "Bars",
     visualizerCircular: "Circular",
     visualizerWave: "Wave",
+    vizAnimated: "Animated visualizer",
+    vizNote:
+      "The live spectrum taps system audio via ScreenCaptureKit and asks for Screen Recording permission on first play; without it, the bars fall back to animation (not live audio).",
     lyrics: "Synced lyrics",
     audioOutput: "Audio output",
     audioOutputSystem: "System default",

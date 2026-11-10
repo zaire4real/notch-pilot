@@ -33,6 +33,9 @@ const npTotalEl = $("np-total");
 const npLyricEl = $("np-lyric");
 const npOutputEl = $("np-output");
 const shelfListEl = $("shelf-list");
+const npVizEl = $("np-viz");
+const npVizLabelEl = $("np-viz-label");
+const pillVizEl = $("pill-viz");
 
 let expanded = false;
 let expandTimer = null;
@@ -61,6 +64,201 @@ let lyricLines = [];
 let audioOutputs = [];
 let lastAppliedOutputUid = "";
 let savedOutputApplied = false;
+
+// --- Audio visualizer (Phase 1b) ------------------------------------
+// Modes: "off" (not playing / disabled), "real" (ScreenCaptureKit
+// spectrum from Rust), "animated" (honest fallback: bars animate
+// while music plays, labelled 動畫視覺化 in the UI — never presented
+// as real audio). The stream runs only while music is playing.
+const VIZ_BANDS = 8;
+const VIZ_POLL_MS = 140;
+let vizMode = "off";
+let vizTimer = null;
+let vizStarting = false;
+let vizLevels = new Array(VIZ_BANDS).fill(0);
+let animLevels = new Array(VIZ_BANDS).fill(0);
+let npVizBars = [];
+let pillVizBars = [];
+
+function buildVizBars() {
+  if (npVizEl) {
+    npVizEl.innerHTML = "";
+    npVizBars = [];
+    for (let i = 0; i < VIZ_BANDS; i++) {
+      const s = document.createElement("span");
+      npVizEl.appendChild(s);
+      npVizBars.push(s);
+    }
+  }
+  if (pillVizEl) {
+    pillVizEl.innerHTML = "";
+    pillVizBars = [];
+    for (let i = 0; i < 4; i++) {
+      const s = document.createElement("span");
+      pillVizEl.appendChild(s);
+      pillVizBars.push(s);
+    }
+  }
+}
+
+// Bar heights for the current style. "bars": straight levels.
+// "wave": the same levels under a sine envelope (taller in the
+// middle). "circular": bars radiate around the art — their rotation
+// is set in applyVizStyle; height grows back towards the art.
+function vizBarHeight(level, index, style) {
+  if (style === "wave") {
+    const env = 0.55 + 0.45 * Math.sin((Math.PI * (index + 0.5)) / VIZ_BANDS);
+    return 2 + level * 46 * env;
+  }
+  if (style === "circular") {
+    return 3 + level * 11;
+  }
+  return 2 + level * 54;
+}
+
+function renderVizBars() {
+  const style =
+    lastSettings && lastSettings.media && lastSettings.media.visualizer_style
+      ? lastSettings.media.visualizer_style
+      : "bars";
+  const show = vizMode !== "off";
+  if (npVizEl) {
+    npVizEl.hidden = !show;
+    if (show) {
+      npVizBars.forEach((bar, i) => {
+        bar.style.height = `${vizBarHeight(vizLevels[i] || 0, i, style).toFixed(1)}px`;
+      });
+    }
+  }
+  if (npVizLabelEl) {
+    // Honest label: shown ONLY while the animated fallback runs.
+    npVizLabelEl.hidden = vizMode !== "animated";
+  }
+  if (pillVizEl) {
+    pillVizEl.hidden = !show;
+    if (show) {
+      pillVizBars.forEach((bar, i) => {
+        // Pill uses 4 bars: the louder of each band pair.
+        const lvl = Math.max(vizLevels[i * 2] || 0, vizLevels[i * 2 + 1] || 0);
+        bar.style.height = `${(2 + lvl * 12).toFixed(1)}px`;
+      });
+    }
+  }
+}
+
+// Animated fallback levels: a smooth random walk (slow sine drift
+// + noise), so the bars move while music plays without claiming to
+// be the real spectrum.
+function nextAnimatedLevels() {
+  const time = Date.now() / 1000;
+  for (let i = 0; i < VIZ_BANDS; i++) {
+    const target =
+      0.35 +
+      0.3 * Math.sin(time * 1.7 + i * 0.9) +
+      (Math.random() - 0.5) * 0.25;
+    animLevels[i] += (target - animLevels[i]) * 0.35;
+    animLevels[i] = Math.min(1, Math.max(0.06, animLevels[i]));
+  }
+  return animLevels;
+}
+
+async function vizTickReal() {
+  try {
+    const levels = await invoke("visualizer_levels");
+    if (Array.isArray(levels) && levels.length >= VIZ_BANDS) {
+      vizLevels = levels.slice(0, VIZ_BANDS);
+    }
+  } catch (e) {
+    // A failed poll must not kill the timer; the next tick retries.
+    console.warn("visualizer_levels failed:", e);
+  }
+  renderVizBars();
+}
+
+function vizTickAnimated() {
+  vizLevels = nextAnimatedLevels().slice();
+  renderVizBars();
+}
+
+function stopVisualizer() {
+  if (vizTimer !== null) {
+    clearInterval(vizTimer);
+    vizTimer = null;
+  }
+  if (vizMode === "real") {
+    invoke("visualizer_stop").catch((e) =>
+      console.warn("visualizer_stop failed:", e),
+    );
+  }
+  vizMode = "off";
+  vizLevels = new Array(VIZ_BANDS).fill(0);
+  animLevels = new Array(VIZ_BANDS).fill(0);
+  renderVizBars();
+}
+
+// Start the visualizer for the current track: try the real
+// ScreenCaptureKit stream first; on any failure (no permission,
+// macOS < 13, …) fall back to the labelled animation.
+async function startVisualizer() {
+  if (vizMode !== "off" || vizStarting) return;
+  vizStarting = true;
+  try {
+    const mode = await invoke("visualizer_start");
+    if (mode === "real") {
+      vizMode = "real";
+      vizTimer = setInterval(vizTickReal, VIZ_POLL_MS);
+      vizTickReal();
+      return;
+    }
+  } catch (e) {
+    console.warn("real visualizer unavailable, using animated fallback:", e);
+  } finally {
+    vizStarting = false;
+  }
+  vizMode = "animated";
+  vizTimer = setInterval(vizTickAnimated, 120);
+  vizTickAnimated();
+}
+
+// Apply the visualizer style class (bars / wave / circular) to the
+// media-row container. For circular, each bar also gets its radial
+// rotation (translateY(-34px) = container half-size, see styles.css).
+function applyVizStyle() {
+  if (!npVizEl) return;
+  const style =
+    lastSettings && lastSettings.media && lastSettings.media.visualizer_style
+      ? lastSettings.media.visualizer_style
+      : "bars";
+  npVizEl.classList.toggle("viz-wave", style === "wave");
+  npVizEl.classList.toggle("viz-circular", style === "circular");
+  npVizBars.forEach((bar, i) => {
+    bar.style.transform =
+      style === "circular" ? `rotate(${i * 45}deg) translateY(-34px)` : "";
+  });
+}
+
+// Start/stop the visualizer from the current play state + setting.
+// Called after every Now Playing refresh and every settings change.
+function syncVisualizer() {
+  const enabled =
+    lastSettings &&
+    lastSettings.media &&
+    lastSettings.media.visualizer &&
+    lastNowPlaying &&
+    lastNowPlaying.title &&
+    lastNowPlaying.playing;
+  if (!enabled) {
+    if (vizMode !== "off") stopVisualizer();
+    return;
+  }
+  if (vizMode === "off") {
+    applyVizStyle();
+    startVisualizer();
+  } else {
+    applyVizStyle();
+    renderVizBars();
+  }
+}
 
 function invoke(cmd, args) {
   if (!tauri || !tauri.core || typeof tauri.core.invoke !== "function") {
@@ -113,6 +311,7 @@ function renderNowPlaying() {
     npLyricEl.textContent = "";
     currentTrackKey = "";
     lyricLines = [];
+    syncVisualizer();
     return;
   }
   npTitleEl.textContent = np.title;
@@ -148,9 +347,16 @@ function renderNowPlaying() {
     npLyricEl.hidden = true;
     npLyricEl.textContent = "";
     fetchLyrics(np);
+    // A new track is a cheap moment to retry the real visualizer:
+    // if the user granted Screen Recording since the animated
+    // fallback started, the next track picks up the real spectrum.
+    if (vizMode === "animated") {
+      stopVisualizer();
+    }
   } else {
     renderLyric();
   }
+  syncVisualizer();
 }
 
 function renderProgress() {
@@ -313,6 +519,9 @@ function applySettings(settings) {
       const known = audioOutputs.some((d) => d.uid === uid);
       npOutputEl.value = known ? uid : "system";
     }
+    // Visualizer toggled or style changed: apply immediately.
+    applyVizStyle();
+    syncVisualizer();
   }
 }
 
@@ -584,6 +793,7 @@ async function loadLanguageFromSettings() {
 }
 
 async function init() {
+  buildVizBars();
   await loadLanguageFromSettings();
   applyI18n();
   renderBattery();

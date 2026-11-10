@@ -116,6 +116,82 @@ html, body {
   background: #222;
 }
 
+/* Visualizer (Phase 1b): bars drawn behind/around the album art
+   (§5.2). The wrapper keeps the art's 48px footprint in the flex
+   row; the art sits on top of the bars (position + z-index). */
+.np-art-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+.np-art-wrap .np-art {
+  position: relative;
+  z-index: 1;
+}
+.np-viz {
+  position: absolute;
+  inset: -6px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2px;
+  pointer-events: none;
+}
+.np-viz span {
+  flex: 1;
+  min-height: 2px;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 2px 2px 0 0;
+}
+/* "wave": same levels, but the bars form a sine silhouette
+   (taller in the middle) with rounded tops. */
+.np-viz.viz-wave span { border-radius: 3px; }
+/* "circular": the 8 bars radiate around the art instead of sitting
+   under it. The container is 10px larger than the art on every side;
+   JS rotates each bar around the centre (translateY(-34px) puts the
+   bar's top at the container edge, and the bar grows back towards
+   the art as its level rises). */
+.np-viz.viz-circular {
+  inset: -10px;
+  display: block;
+}
+.np-viz.viz-circular span {
+  position: absolute;
+  left: calc(50% - 2px);
+  top: 50%;
+  width: 4px;
+  min-height: 3px;
+  transform-origin: 50% 0;
+  border-radius: 2px;
+}
+/* Honest label shown only while the ANIMATED fallback is running
+   (never shown for the real spectrum). */
+.np-viz-label {
+  position: absolute;
+  left: 0;
+  bottom: -14px;
+  font-size: 9px;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+/* Collapsed pill visualizer: 4 mini bars next to the battery while
+   music is playing (isolated Phase 1b addition; the full pill
+   rework is Phase 2). */
+.pill-viz {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.pill-viz span {
+  width: 3px;
+  min-height: 2px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 1px;
+}
+
 /* Audio output selector in the media row. */
 .np-output {
   max-width: 118px;

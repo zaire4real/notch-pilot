@@ -11,6 +11,7 @@
     <!-- Collapsed pill: always visible. No clock here (original
          parity): the menu bar already shows the time. -->
     <div id="pill">
+      <span id="pill-viz" class="pill-viz" hidden></span>
       <span id="pill-battery" class="pill-item">🔋 --%</span>
     </div>
 
@@ -25,7 +26,14 @@
       </section>
 
       <section class="row now-playing">
-        <img id="np-art" class="np-art" alt="" hidden />
+        <div class="np-art-wrap">
+          <!-- Visualizer bars sit behind the album art (§5.2). The
+               bar spans are built by main.js; the container is hidden
+               when the visualizer is off or nothing is playing. -->
+          <div id="np-viz" class="np-viz" hidden></div>
+          <img id="np-art" class="np-art" alt="" hidden />
+          <span id="np-viz-label" class="np-viz-label muted" data-i18n="vizAnimated" hidden></span>
+        </div>
         <div class="np-text">
           <div id="np-title" class="np-title"></div>
           <div id="np-artist" class="muted"></div>
